@@ -1,13 +1,18 @@
 # Examples
 
-This page lists the runnable example apps that currently live in this repository.
+This page separates public examples from internal or reference apps.
 
-## Runnable Repository Examples
+## Curated public examples
 
-- `examples/hello-counter`: Minimal state/view/button flow using the node backend.
+- `examples/hello-counter`: Minimal state, view, and button flow using the Node backend.
 - `examples/raw-draw-demo`: Low-level `draw()` rendering example.
+- `examples/gallery`: Widget gallery and scene library for widget demos.
 
-## Run from Source
+## Internal or reference examples
+
+- `examples/regression-dashboard`: Validation app used to exercise layout, rendering, and interaction behavior.
+
+## Run from source
 
 Clone and build the workspace:
 
@@ -20,28 +25,17 @@ npm run build
 npm run build:native
 ```
 
-Run the examples:
+Run the public examples:
 
 ```bash
 node examples/hello-counter/dist/index.js
 node examples/raw-draw-demo/dist/index.js
+node examples/gallery/dist/index.js
 ```
 
-## Looking for Larger App Examples?
+## Related guides
 
-Use `create-rezi` templates (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, `starship`) for full starter apps:
-
-- [Create Rezi (canonical template overview)](create-rezi.md)
-- [create-rezi package reference](../packages/create-rezi.md)
-
-## Notes
-
-- The runnable examples in `examples/` are the two apps listed above.
-- Other docs may include inline snippets for concepts; those snippets are instructional, not tracked as standalone example packages.
-
-## Next Steps
-
+- [Create Rezi](create-rezi.md) - Public starter templates
 - [Quickstart](quickstart.md) - Build your first app
-- [Animation Guide](../guide/animation.md) - Learn the declarative motion APIs used by `animation-lab`
 - [Widget Catalog](../widgets/index.md) - Browse available widgets
 - [Keybindings](../guide/input-and-focus.md) - Advanced input handling

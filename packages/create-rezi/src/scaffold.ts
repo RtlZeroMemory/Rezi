@@ -2,13 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey =
-  | "dashboard"
-  | "stress-test"
-  | "cli-tool"
-  | "animation-lab"
-  | "minimal"
-  | "starship";
+export type TemplateKey = "minimal" | "cli-tool" | "starship";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -22,61 +16,11 @@ export type TemplateDefinition = {
 
 export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
-    key: "dashboard",
-    label: "EdgeOps Dashboard",
-    description: "Product-grade operations console with deterministic updates",
-    safetyTag: "safe-default",
-    safetyNote: "Balanced runtime profile for everyday app development.",
-    highlights: [
-      "fleet control plane with stable live telemetry",
-      "incident feed + inspector + escalation runbook",
-    ],
-    dir: "dashboard",
-  },
-  {
-    key: "stress-test",
-    label: "Visual Benchmark Matrix",
-    description:
-      "Three-lane visual benchmark with deterministic sim model + real runtime diagnostics",
-    safetyTag: "high-cpu-io",
-    safetyNote: "Generates heavy CPU/IO pressure; intended for benchmarking only.",
-    highlights: [
-      "geometry + text/file activity + matrix rain lanes with phase-based intensity ramp",
-      "deterministic sim scorecard and measured CPU/RSS/lag/timing/sink throughput",
-    ],
-    dir: "stress-test",
-  },
-  {
-    key: "cli-tool",
-    label: "Multi-Screen CLI Tool",
-    description: "Task-oriented multi-screen TUI with first-party page routing",
-    safetyTag: "safe-default",
-    safetyNote: "Lightweight template focused on product workflows and routing.",
-    highlights: [
-      "home/logs/settings/detail screens with router history and focus restoration",
-      "global route keybindings plus breadcrumb + tabs helpers wired to router state",
-    ],
-    dir: "cli-tool",
-  },
-  {
-    key: "animation-lab",
-    label: "Declarative Animation Lab",
-    description:
-      "Responsive animation playground showcasing transition/spring/sequence/stagger hooks",
-    safetyTag: "safe-default",
-    safetyNote: "Visual-first starter with moderate CPU usage and deterministic animation targets.",
-    highlights: [
-      "reactor command deck combining canvas visuals, charts, gauges, and staggered module rails",
-      "keyboard-driven autoplay + vector nudging + burst impulses with resize-aware layout adaptation",
-    ],
-    dir: "animation-lab",
-  },
-  {
     key: "minimal",
     label: "Minimal Utility TUI",
-    description: "Single-screen starter for focused tools with essential patterns only",
+    description: "Single-screen starter for focused tools",
     safetyTag: "safe-default",
-    safetyNote: "Small footprint template intended for quick utility workflows.",
+    safetyNote: "Small-footprint template for quick utility workflows.",
     highlights: [
       "single-screen state flow with keybindings, theme cycling, and inline error handling",
       "lean multi-file structure plus reducer/render/keybinding test examples",
@@ -84,10 +28,21 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     dir: "minimal",
   },
   {
+    key: "cli-tool",
+    label: "Multi-Screen CLI Tool",
+    description: "Multi-screen CLI starter with first-party routing",
+    safetyTag: "safe-default",
+    safetyNote: "Lightweight template focused on product workflows and routing.",
+    highlights: [
+      "home/logs/settings screens with router history and focus restoration",
+      "global route keybindings plus breadcrumb and tabs helpers wired to router state",
+    ],
+    dir: "cli-tool",
+  },
+  {
     key: "starship",
     label: "Starship Command Console",
-    description:
-      "Multi-deck command console showcasing routing, animation, charts, forms, and the full widget catalog",
+    description: "Polished multi-deck showcase for routing, animation, charts, forms, and overlays",
     safetyTag: "safe-default",
     safetyNote:
       "Feature-rich showcase template with moderate CPU usage from animation hooks and live telemetry.",
@@ -104,17 +59,9 @@ const TEMPLATE_ALIASES = new Map<string, TemplateKey>(
   TEMPLATE_DEFINITIONS.map((template) => [template.key, template.key]),
 );
 
-TEMPLATE_ALIASES.set("dash", "dashboard");
-TEMPLATE_ALIASES.set("stress", "stress-test");
-TEMPLATE_ALIASES.set("chaos", "stress-test");
-TEMPLATE_ALIASES.set("bench", "stress-test");
 TEMPLATE_ALIASES.set("cli", "cli-tool");
 TEMPLATE_ALIASES.set("tool", "cli-tool");
 TEMPLATE_ALIASES.set("multiscreen", "cli-tool");
-TEMPLATE_ALIASES.set("animation", "animation-lab");
-TEMPLATE_ALIASES.set("anim", "animation-lab");
-TEMPLATE_ALIASES.set("lab", "animation-lab");
-TEMPLATE_ALIASES.set("motion", "animation-lab");
 TEMPLATE_ALIASES.set("mini", "minimal");
 TEMPLATE_ALIASES.set("basic", "minimal");
 TEMPLATE_ALIASES.set("utility", "minimal");

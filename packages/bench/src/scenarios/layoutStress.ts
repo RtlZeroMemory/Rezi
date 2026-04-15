@@ -10,7 +10,7 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
@@ -117,99 +117,6 @@ async function runRezi(config: ScenarioConfig, rows: number, cols: number): Prom
   }
 }
 
-async function runInkCompat(
-  config: ScenarioConfig,
-  rows: number,
-  cols: number,
-): Promise<BenchMetrics> {
-  const React = await import("react");
-  const InkCompat = await import("@rezi-ui/ink-compat");
-  const backend = await createBenchBackend();
-
-  const initial = backend.waitForFrame();
-  const instance = InkCompat.render(
-    reactTree(React, InkCompat, rows, cols, 0) as React.ReactNode,
-    {
-      internal_backend: backend,
-    } as never,
-  );
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = backend.waitForFrame();
-      instance.rerender(reactTree(React, InkCompat, rows, cols, i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = backend.waitForFrame();
-        instance.rerender(
-          reactTree(React, InkCompat, rows, cols, config.warmup + i + 1) as React.ReactNode,
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
-async function runInk(config: ScenarioConfig, rows: number, cols: number): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initial = stdout.waitForWrite();
-  const instance = Ink.render(reactTree(React, Ink, rows, cols, 0) as React.ReactNode, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = stdout.waitForWrite();
-      instance.rerender(reactTree(React, Ink, rows, cols, i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const writeBase = stdout.writeCount;
-    const bytesBase = stdout.totalBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = stdout.waitForWrite();
-        instance.rerender(
-          reactTree(React, Ink, rows, cols, config.warmup + i + 1) as React.ReactNode,
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = stdout.writeCount - writeBase;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runOpenTui(
   config: ScenarioConfig,
   rows: number,
@@ -223,7 +130,7 @@ export const layoutStressScenario: Scenario = {
   description: "Nested flex layout with changing text widths (forces re-layout)",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 40, cols: 4 }],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea"],
+  frameworks: ["rezi-native", "opentui", "opentui-core", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -231,8 +138,6 @@ export const layoutStressScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, rows, cols);
-      case "ink":
-        return runInk(config, rows, cols);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

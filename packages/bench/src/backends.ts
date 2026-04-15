@@ -2,7 +2,7 @@
  * Benchmark backends.
  *
  * - BenchBackend: RuntimeBackend stub for Rezi benchmark paths (no terminal I/O).
- * - MeasuringStream: Writable that captures write timing for Ink benchmarks.
+ * - MeasuringStream: Writable that captures write timing for benchmark runs.
  */
 
 import { Writable } from "node:stream";
@@ -164,21 +164,21 @@ export class BenchBackend implements RuntimeBackend {
 // ── MeasuringStream ─────────────────────────────────────────────────
 
 /**
- * Writable stream for capturing Ink's stdout output.
+ * Writable stream for capturing benchmark stdout output.
  *
  * Tracks write count, total bytes, and per-write timestamps.
- * Has `columns`/`rows` properties so Ink treats it as a real terminal.
+ * Has `columns`/`rows` properties so terminal renderers treat it as a real terminal.
  */
 export class MeasuringStream extends Writable {
   writeCount = 0;
   totalBytes = 0;
   readonly writeTimes: number[] = [];
 
-  /** Terminal dimensions reported to Ink / Yoga. */
+  /** Terminal dimensions reported to the renderer / layout engine. */
   columns = 120;
   rows = 40;
 
-  /** Ink checks isTTY for cursor manipulation and rendering. Must be true. */
+  /** The renderer checks isTTY for cursor manipulation and rendering. Must be true. */
   isTTY = true;
 
   private writeResolvers: Array<() => void> = [];
@@ -219,13 +219,13 @@ export class MeasuringStream extends Writable {
 
 import { Readable } from "node:stream";
 
-/** Readable that never produces data. Used as stdin for Ink. */
+/** Readable that never produces data. Used as stdin for terminal benchmarks. */
 export class NullReadable extends Readable {
   isTTY = false;
   override _read(): void {
     // intentionally never pushes data
   }
-  // Ink calls setRawMode — make it a no-op
+  // The renderer calls setRawMode - make it a no-op
   setRawMode(): this {
     return this;
   }

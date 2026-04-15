@@ -4,22 +4,17 @@
  * Measures the time to construct a complete widget tree from scratch.
  *
  * - Rezi native: createApp → state update → view rebuild → diff → drawlist → requestFrame.
- * - Ink: React reconciler → Yoga layout → ANSI output (via render + MeasuringStream).
+ * - React-based terminal renderer path: reconciler -> layout -> ANSI output.
  *
  * Parameterized by tree size: 10, 100, 500, 1000, 5000 items.
  */
 
-import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
+import { BenchBackend } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
-import {
-  buildBlessedTree,
-  buildReactTree,
-  buildReziTree,
-  buildTermkitTree,
-} from "./treeBuilders.js";
+import { buildBlessedTree, buildReziTree, buildTermkitTree } from "./treeBuilders.js";
 
 async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
   const core = await import("@rezi-ui/core");
@@ -69,112 +64,6 @@ async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics>
   } finally {
     await app.stop();
     app.dispose();
-  }
-}
-
-async function runInkCompat(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
-  let React: typeof import("react");
-  let InkCompat: typeof import("@rezi-ui/ink-compat");
-  try {
-    React = await import("react");
-    InkCompat = await import("@rezi-ui/ink-compat");
-  } catch {
-    throw new Error("@rezi-ui/ink-compat or react not available");
-  }
-
-  const backend = new BenchBackend(120, Math.max(40, n + 5));
-
-  // Set up the frame waiter BEFORE render() — the initial frame may be
-  // produced in microtasks before we get a chance to await.
-  const initialFrame = backend.waitForFrame();
-  const tree = buildReactTree(React, InkCompat, n) as React.ReactNode;
-  const instance = InkCompat.render(tree, { internal_backend: backend } as never);
-  await initialFrame;
-
-  try {
-    // Warmup (excluded from measured stats).
-    for (let i = 0; i < config.warmup; i++) {
-      const frameP = backend.waitForFrame();
-      instance.rerender(buildReactTree(React, InkCompat, n, i + 1) as React.ReactNode);
-      await frameP;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    // Now benchmark rerenders (construction + reconciliation + VNode conversion).
-    // Seed starts after warmup so each frame remains visually distinct for Ink-style dedupe.
-    const metrics = await benchAsync(
-      async (i) => {
-        const frameP = backend.waitForFrame();
-        instance.rerender(
-          buildReactTree(React, InkCompat, n, config.warmup + i + 1) as React.ReactNode,
-        );
-        await frameP;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
-async function runInk(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
-  let React: typeof import("react");
-  let Ink: typeof import("ink");
-  try {
-    React = await import("react");
-    Ink = await import("ink");
-  } catch {
-    throw new Error("ink or react not available — install: npm i ink react");
-  }
-
-  const stdout = new MeasuringStream();
-  stdout.rows = Math.max(40, n + 5);
-  const stdin = new NullReadable();
-
-  const tree = buildReactTree(React, Ink, n) as React.ReactNode;
-  const initialWrite = stdout.waitForWrite();
-  const instance = Ink.render(tree, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initialWrite;
-
-  try {
-    // Warmup (excluded from measured stats).
-    // Seed starts at 1 — Ink deduplicates identical output, so each frame must differ.
-    for (let i = 0; i < config.warmup; i++) {
-      const writeP = stdout.waitForWrite();
-      instance.rerender(buildReactTree(React, Ink, n, i + 1) as React.ReactNode);
-      await writeP;
-    }
-
-    const writeBase = stdout.writeCount;
-    const bytesBase = stdout.totalBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const writeP = stdout.waitForWrite();
-        instance.rerender(buildReactTree(React, Ink, n, config.warmup + i + 1) as React.ReactNode);
-        await writeP;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = stdout.writeCount - writeBase;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
   }
 }
 
@@ -250,7 +139,6 @@ export const constructionScenario: Scenario = {
   paramSets: [{ items: 10 }, { items: 100 }, { items: 500 }, { items: 1000 }],
   frameworks: [
     "rezi-native",
-    "ink",
     "opentui",
     "opentui-core",
     "bubbletea",
@@ -266,8 +154,6 @@ export const constructionScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, n);
-      case "ink":
-        return runInk(config, n);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

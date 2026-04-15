@@ -1,6 +1,6 @@
 # Constraint Demos
 
-This page lists runnable, polished demos that use the **helper-first constraint layer** in realistic layouts.
+This page lists a runnable demo that uses the helper-first constraint layer in a realistic layout.
 
 See also:
 - `docs/getting-started/constraints-quickstart.md`
@@ -9,7 +9,7 @@ See also:
 
 ---
 
-## Demo 1: Starship (responsive multi-panel app shell)
+## Demo: Starship (responsive multi-panel app shell)
 
 - Source: `packages/create-rezi/templates/starship/src/`
 - Highlights:
@@ -40,34 +40,4 @@ env -u NO_COLOR \
   REZI_FRAME_AUDIT_LOG=/tmp/rezi-frame-audit.ndjson \
   npx tsx packages/create-rezi/templates/starship/src/main.ts
 node scripts/frame-audit-report.mjs /tmp/rezi-frame-audit.ndjson --latest-pid
-```
-
----
-
-## Demo 2: Dashboard (equalized inspector labels + intrinsic-aware modal)
-
-- Source: `packages/create-rezi/templates/dashboard/src/`
-- Highlights:
-  - label equalization via `groupConstraints.maxSiblingMinWidth(...)`
-  - intrinsic-aware modal sizing via `widthConstraints.clampedIntrinsicPlus(...)` / `heightConstraints.clampedIntrinsicPlus(...)`
-
-Run:
-
-```bash
-npx tsx packages/create-rezi/templates/dashboard/src/main.ts
-```
-
----
-
-## Demo 3: Animation Lab (viewport clamping + display constraints)
-
-- Source: `packages/create-rezi/templates/animation-lab/src/`
-- Highlights:
-  - viewport clamping via `widthConstraints.clampedViewportMinus(...)` / `heightConstraints.clampedViewportMinus(...)`
-  - viewport threshold visibility via `visibilityConstraints.*`
-
-Run:
-
-```bash
-npx tsx packages/create-rezi/templates/animation-lab/src/main.ts
 ```

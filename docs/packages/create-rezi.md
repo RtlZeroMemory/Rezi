@@ -1,6 +1,6 @@
 # create-rezi
 
-`create-rezi` is the CLI package that scaffolds new Rezi apps.
+`create-rezi` is the CLI package that scaffolds Rezi apps.
 
 ## Usage
 
@@ -18,38 +18,29 @@ npx create-rezi my-app
 bunx create-rezi my-app
 ```
 
-The CLI prompts for any missing values (project name/template) when run interactively.
+The CLI prompts for any missing values when run interactively.
 
-## Templates
+## Public templates
 
-Canonical template names:
+Canonical public template names:
 
-- `dashboard` (alias: `dash`)
-- `stress-test` (aliases: `stress`, `chaos`, `bench`)
-- `cli-tool` (aliases: `cli`, `tool`, `multiscreen`)
-- `animation-lab` (aliases: `animation`, `anim`, `lab`, `motion`)
-- `minimal` (aliases: `mini`, `basic`, `utility`)
-- `starship` (aliases: `ship`, `bridge`, `command`)
+- `minimal`
+- `cli-tool`
+- `starship`
 
-`animation-lab` is the canonical reference for Rezi's declarative motion APIs (`useTransition`, `useSpring`, `useSequence`, `useStagger`) plus `ui.box` transition props and runtime theme cycling.
-
-`stress-test` and `animation-lab` derive major lane/canvas chrome from the active theme palette so dark/light/high-contrast presets remain coherent by default.
+`minimal` is the smallest starter, `cli-tool` is the routed workflow starter, and `starship` covers the widest public widget surface.
 
 Use a specific template:
 
 ```bash
-npm create rezi my-app -- --template dashboard
-npm create rezi my-app -- --template cli-tool
-npm create rezi my-app -- --template animation-lab
-npm create rezi my-app -- --template starship
 npm create rezi my-app -- --template minimal
+npm create rezi my-app -- --template cli-tool
+npm create rezi my-app -- --template starship
 
 # Bun
-bun create rezi my-app -- --template dashboard
-bun create rezi my-app -- --template cli-tool
-bun create rezi my-app -- --template animation-lab
-bun create rezi my-app -- --template starship
 bun create rezi my-app -- --template minimal
+bun create rezi my-app -- --template cli-tool
+bun create rezi my-app -- --template starship
 ```
 
 List templates and highlights:
@@ -60,19 +51,19 @@ npm create rezi -- --list-templates
 bun create rezi -- --list-templates
 ```
 
-For full template descriptions and highlights, use: [Getting Started -> Create Rezi](../getting-started/create-rezi.md).
+For the public template guide, see: [Getting Started -> Create Rezi](../getting-started/create-rezi.md).
 
 Template dev workflow notes:
 
-- `minimal`, `dashboard`, `cli-tool`, and `starship` templates run `tsx src/main.ts --hsr` for `npm run dev` / `bun run dev`.
+- The public templates run `tsx src/main.ts --hsr` for `npm run dev` / `bun run dev`.
 - This enables in-process hot state-preserving reload through `@rezi-ui/node` `createNodeApp({ hotReload: ... })`.
 
 ## Options
 
-- `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, `starship`, plus aliases).
+- `--template, -t <name>`: Select a template (`minimal`, `cli-tool`, `starship`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
-- `--list-templates, --templates`: Print available templates and highlights.
+- `--list-templates, --templates`: Print the public template set and highlights.
 - `--help, -h`: Show help.
 
 ## Template Smoke Check

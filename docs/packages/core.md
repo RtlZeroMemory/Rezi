@@ -84,7 +84,7 @@ Flexbox-like layout with:
 - Absolute positioning (`position: "absolute"` + offsets)
 - Grid explicit placement + spans (`gridColumn/gridRow/colSpan/rowSpan`)
 - Deterministic integer remainder distribution for weighted splits
-- Layout stability signature coverage for modern container widgets (grid/table/tabs/accordion/modal/virtualList/splitPane/breadcrumb/pagination)
+- Layout stability signature coverage for current container widgets (grid/table/tabs/accordion/modal/virtualList/splitPane/breadcrumb/pagination)
 - Constraint propagation
 
 ### Theme System

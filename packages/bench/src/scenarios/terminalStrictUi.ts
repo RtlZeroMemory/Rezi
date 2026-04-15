@@ -14,13 +14,12 @@ export const terminalStrictUiScenario: Scenario = {
   description: "Strict full UI dashboard benchmark with structured panel composition",
   defaultConfig: { warmup: 120, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120, services: 24 }],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
     switch (framework) {
       case "rezi-native":
-      case "ink":
       case "opentui":
       case "opentui-core":
       case "bubbletea":

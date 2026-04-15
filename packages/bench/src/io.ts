@@ -137,7 +137,7 @@ export async function createBenchBackend(): Promise<BenchFrameBackend> {
   return new LatchingBackend(inner);
 }
 
-type InkMeasuringStdout = Writable &
+type BenchMeasuringStdout = Writable &
   Readonly<{
     isTTY: boolean;
     columns: number;
@@ -148,7 +148,7 @@ type InkMeasuringStdout = Writable &
     reset: () => void;
   }>;
 
-export class TtyMeasuringStream extends Writable implements InkMeasuringStdout {
+export class TtyMeasuringStream extends Writable implements BenchMeasuringStdout {
   writeCount = 0;
   totalBytes = 0;
   readonly writeTimes: number[] = [];
@@ -201,6 +201,6 @@ export class TtyMeasuringStream extends Writable implements InkMeasuringStdout {
   }
 }
 
-export function createInkStdout(): InkMeasuringStdout {
+export function createBenchStdout(): BenchMeasuringStdout {
   return getBenchIoMode() === "terminal" ? new TtyMeasuringStream() : new MeasuringStream();
 }

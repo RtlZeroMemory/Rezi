@@ -18,11 +18,6 @@ Rezi publishes:
 - `@rezi-ui/native`
 - `@rezi-ui/testkit`
 - `@rezi-ui/jsx`
-- `@rezi-ui/ink-compat`
-- `ink-gradient-shim`
-- `ink-spinner-shim`
-- `@rezi-ui/ink-gradient-shim`
-- `@rezi-ui/ink-spinner-shim`
 - `create-rezi`
 
 The repo uses a single version across these publishable packages.

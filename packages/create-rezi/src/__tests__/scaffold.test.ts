@@ -11,20 +11,10 @@ import {
 } from "../scaffold.js";
 
 test("normalizeTemplateName accepts friendly aliases", () => {
-  assert.equal(normalizeTemplateName("dashboard"), "dashboard");
-  assert.equal(normalizeTemplateName("dash"), "dashboard");
-  assert.equal(normalizeTemplateName("stress-test"), "stress-test");
-  assert.equal(normalizeTemplateName("stress"), "stress-test");
-  assert.equal(normalizeTemplateName("chaos"), "stress-test");
-  assert.equal(normalizeTemplateName("bench"), "stress-test");
   assert.equal(normalizeTemplateName("cli-tool"), "cli-tool");
   assert.equal(normalizeTemplateName("cli"), "cli-tool");
   assert.equal(normalizeTemplateName("tool"), "cli-tool");
   assert.equal(normalizeTemplateName("multi_screen"), "cli-tool");
-  assert.equal(normalizeTemplateName("animation-lab"), "animation-lab");
-  assert.equal(normalizeTemplateName("animation"), "animation-lab");
-  assert.equal(normalizeTemplateName("anim"), "animation-lab");
-  assert.equal(normalizeTemplateName("motion"), "animation-lab");
   assert.equal(normalizeTemplateName("minimal"), "minimal");
   assert.equal(normalizeTemplateName("mini"), "minimal");
   assert.equal(normalizeTemplateName("basic"), "minimal");
@@ -36,14 +26,7 @@ test("normalizeTemplateName accepts friendly aliases", () => {
 });
 
 test("template keys match template directories and include highlights", async () => {
-  const expectedKeys = [
-    "dashboard",
-    "stress-test",
-    "cli-tool",
-    "animation-lab",
-    "minimal",
-    "starship",
-  ];
+  const expectedKeys = ["minimal", "cli-tool", "starship"];
   const keys = TEMPLATE_DEFINITIONS.map((template) => template.key);
   assert.equal(keys.join(","), expectedKeys.join(","));
 
@@ -107,10 +90,8 @@ test("createProject scaffolds each template with substitutions", async () => {
     );
     assert.ok(!appNameSource.includes("__APP_NAME__"));
 
-    if (template.key === "minimal" || template.key === "dashboard" || template.key === "cli-tool") {
-      assert.ok(main.includes("createNodeApp"));
-      assert.ok(main.includes("hotReload"));
-    }
+    assert.ok(main.includes("createNodeApp"));
+    assert.ok(main.includes("hotReload"));
 
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
     assert.ok(readme.includes(template.label));

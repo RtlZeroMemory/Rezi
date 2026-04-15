@@ -3,8 +3,6 @@
  *
  * Goal: provide a comparable “small update” benchmark across:
  * - Rezi native
- * - Ink-on-Rezi
- * - Ink
  * - OpenTUI
  * - blessed
  * - ratatui (Rust)
@@ -14,7 +12,7 @@ import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
@@ -78,109 +76,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   } finally {
     await app.stop();
     app.dispose();
-  }
-}
-
-async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const InkCompat = await import("@rezi-ui/ink-compat");
-  const backend = await createBenchBackend();
-
-  const h = React.createElement;
-  const mk = (tick: number): React.ReactNode =>
-    h(
-      InkCompat.Box as unknown as string,
-      { flexDirection: "column", paddingX: 1, gap: 1 },
-      h(InkCompat.Text as unknown as string, { bold: true }, "terminal-rerender"),
-      h(InkCompat.Text as unknown as string, null, `tick=${tick}`),
-    );
-
-  const initial = backend.waitForFrame();
-  const instance = InkCompat.render(
-    mk(0) as React.ReactNode,
-    { internal_backend: backend } as never,
-  );
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = backend.waitForFrame();
-      instance.rerender(mk(i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = backend.waitForFrame();
-        instance.rerender(mk(config.warmup + i + 1) as React.ReactNode);
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
-async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const h = React.createElement;
-  const mk = (tick: number): React.ReactNode =>
-    h(
-      Ink.Box as unknown as string,
-      { flexDirection: "column", paddingX: 1, gap: 1 },
-      h(Ink.Text as unknown as string, { bold: true }, "terminal-rerender"),
-      h(Ink.Text as unknown as string, null, `tick=${tick}`),
-    );
-
-  const initial = stdout.waitForWrite();
-  const instance = Ink.render(mk(0) as React.ReactNode, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = stdout.waitForWrite();
-      instance.rerender(mk(i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const writeBase = stdout.writeCount;
-    const bytesBase = stdout.totalBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = stdout.waitForWrite();
-        instance.rerender(mk(config.warmup + i + 1) as React.ReactNode);
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = config.iterations;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    // Ink can do multiple writes per rerender; keep framesProduced as iterations for comparability.
-    void writeBase;
-    return metrics;
-  } finally {
-    instance.unmount();
   }
 }
 
@@ -252,15 +147,13 @@ export const terminalRerenderScenario: Scenario = {
   description: "Small update benchmark across terminal UI frameworks (includes PTY output path)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig): Promise<BenchMetrics> {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink":
-        return runInk(config);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

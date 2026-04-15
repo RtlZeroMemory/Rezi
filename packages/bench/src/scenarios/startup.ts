@@ -15,7 +15,7 @@
  * and first render — everything the user pays on app launch.
  */
 
-import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
+import { BenchBackend } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
 import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
@@ -26,12 +26,7 @@ import type {
   Scenario,
   ScenarioConfig,
 } from "../types.js";
-import {
-  buildBlessedTree,
-  buildReactTree,
-  buildReziTree,
-  buildTermkitTree,
-} from "./treeBuilders.js";
+import { buildBlessedTree, buildReziTree, buildTermkitTree } from "./treeBuilders.js";
 
 const TREE_SIZE = 50;
 
@@ -106,149 +101,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   };
   emitReziPerfSnapshot(core, "startup", {}, config, metrics);
   return metrics;
-}
-
-async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const InkCompat = await import("@rezi-ui/ink-compat");
-
-  const samples: number[] = [];
-
-  for (let w = 0; w < config.warmup; w++) {
-    const backend = new BenchBackend();
-    const p = backend.waitForFrame();
-    const inst = InkCompat.render(
-      buildReactTree(React, InkCompat, TREE_SIZE, w) as React.ReactNode,
-      { internal_backend: backend } as never,
-    );
-    await p;
-    inst.unmount();
-  }
-
-  tryGc();
-  const memBefore = takeMemory();
-  const cpuBefore = takeCpu();
-  let memMax: MemorySnapshot = memBefore;
-  const t0 = performance.now();
-  let totalBytes = 0;
-
-  for (let i = 0; i < config.iterations; i++) {
-    const backend = new BenchBackend();
-    const ts = performance.now();
-    const p = backend.waitForFrame();
-    const inst = InkCompat.render(
-      buildReactTree(React, InkCompat, TREE_SIZE, i) as React.ReactNode,
-      { internal_backend: backend } as never,
-    );
-    await p;
-    samples.push(performance.now() - ts);
-
-    totalBytes += backend.totalFrameBytes;
-    inst.unmount();
-
-    if (i % 50 === 49) {
-      memMax = peakMemory(memMax, takeMemory());
-    }
-  }
-
-  const totalWallMs = performance.now() - t0;
-  const cpuAfter = takeCpu();
-  const memAfter = takeMemory();
-  memMax = peakMemory(memMax, memAfter);
-
-  return {
-    timing: computeStats(samples),
-    memBefore,
-    memAfter,
-    memPeak: memMax,
-    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
-    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
-    rssSlopeKbPerIter: null,
-    heapUsedSlopeKbPerIter: null,
-    memStable: null,
-    cpu: diffCpu(cpuBefore, cpuAfter),
-    iterations: config.iterations,
-    totalWallMs,
-    opsPerSec: config.iterations / (totalWallMs / 1000),
-    framesProduced: config.iterations,
-    bytesProduced: totalBytes,
-    ptyBytesObserved: null,
-  };
-}
-
-async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-
-  const samples: number[] = [];
-
-  for (let w = 0; w < config.warmup; w++) {
-    const stdout = new MeasuringStream();
-    const stdin = new NullReadable();
-    const p = stdout.waitForWrite();
-    const inst = Ink.render(buildReactTree(React, Ink, TREE_SIZE, w) as React.ReactNode, {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      patchConsole: false,
-      exitOnCtrlC: false,
-    });
-    await p;
-    inst.unmount();
-  }
-
-  tryGc();
-  const memBefore = takeMemory();
-  const cpuBefore = takeCpu();
-  let memMax: MemorySnapshot = memBefore;
-  const t0 = performance.now();
-  let totalBytes = 0;
-
-  for (let i = 0; i < config.iterations; i++) {
-    const stdout = new MeasuringStream();
-    const stdin = new NullReadable();
-
-    const ts = performance.now();
-    const p = stdout.waitForWrite();
-    const inst = Ink.render(buildReactTree(React, Ink, TREE_SIZE, i) as React.ReactNode, {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      patchConsole: false,
-      exitOnCtrlC: false,
-    });
-    await p;
-    samples.push(performance.now() - ts);
-
-    totalBytes += stdout.totalBytes;
-    inst.unmount();
-
-    if (i % 50 === 49) {
-      memMax = peakMemory(memMax, takeMemory());
-    }
-  }
-
-  const totalWallMs = performance.now() - t0;
-  const cpuAfter = takeCpu();
-  const memAfter = takeMemory();
-  memMax = peakMemory(memMax, memAfter);
-
-  return {
-    timing: computeStats(samples),
-    memBefore,
-    memAfter,
-    memPeak: memMax,
-    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
-    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
-    rssSlopeKbPerIter: null,
-    heapUsedSlopeKbPerIter: null,
-    memStable: null,
-    cpu: diffCpu(cpuBefore, cpuAfter),
-    iterations: config.iterations,
-    totalWallMs,
-    opsPerSec: config.iterations / (totalWallMs / 1000),
-    framesProduced: config.iterations,
-    bytesProduced: totalBytes,
-    ptyBytesObserved: null,
-  };
 }
 
 async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
@@ -390,7 +242,6 @@ export const startupScenario: Scenario = {
   paramSets: [{}],
   frameworks: [
     "rezi-native",
-    "ink",
     "opentui",
     "opentui-core",
     "bubbletea",
@@ -404,8 +255,6 @@ export const startupScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink":
-        return runInk(config);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

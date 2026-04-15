@@ -336,19 +336,35 @@ describe("renderer text - wrap newline handling", () => {
     assert.equal(wrapped?.rect.y, 0);
     assert.ok((wrapped?.rect.h ?? 0) >= 3);
   });
+
+  test("wrap=true wraps ANSI-styled text by visible width instead of escape bytes", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("\u001b[31mABCD\u001b[0m EFGH", { wrap: true }), {
+        cols: 4,
+        rows: 4,
+      }),
+    );
+
+    assert.equal(frame.drawTextRuns.length, 0);
+    assert.deepEqual(
+      frame.drawTexts.map((cmd) => ({ x: cmd.x, y: cmd.y, text: cmd.text })),
+      [
+        { x: 0, y: 0, text: "ABCD" },
+        { x: 0, y: 1, text: " " },
+        { x: 0, y: 2, text: "EFGH" },
+      ],
+    );
+    assert.equal(
+      frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")),
+      false,
+    );
+  });
 });
 
-describe("renderer text - transform ANSI styling", () => {
-  const gradientTransform = (): string => "\u001b[31mA\u001b[32mB\u001b[0m";
-
-  test("single-line transform with ANSI emits visible glyphs without escape bytes", () => {
+describe("renderer text - ANSI styling", () => {
+  test("single-line ANSI text emits visible glyphs without escape bytes", () => {
     const frame = parseFrame(
-      renderBytes(
-        textVNode("AB", {
-          __inkTransform: gradientTransform,
-        }),
-        { cols: 20, rows: 1 },
-      ),
+      renderBytes(textVNode("\u001b[31mA\u001b[32mB\u001b[0m", {}), { cols: 20, rows: 1 }),
     );
 
     assert.equal(
@@ -365,30 +381,6 @@ describe("renderer text - transform ANSI styling", () => {
     assert.equal(first.text, "A");
     assert.equal(second.text, "B");
     assert.equal(first.fg !== second.fg, true);
-  });
-
-  test("wrapped transform with ANSI does not render literal CSI tokens", () => {
-    const frame = parseFrame(
-      renderBytes(
-        textVNode("AB", {
-          wrap: true,
-          __inkTransform: gradientTransform,
-        }),
-        { cols: 20, rows: 3 },
-      ),
-    );
-
-    assert.equal(
-      frame.drawTexts.some((cmd) => cmd.text.includes("[39;") || cmd.text.includes("\u001b")),
-      false,
-    );
-    const run = expectSingleDrawTextRun(frame);
-    const blob = expectBlob(frame, run.blobIndex);
-    assert.equal(
-      blob.segments.every((segment) => segment.text.includes("\u001b") === false),
-      true,
-    );
-    assert.equal(blob.segments.map((segment) => segment.text).join(""), "AB");
   });
 });
 

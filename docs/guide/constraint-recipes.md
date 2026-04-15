@@ -72,8 +72,8 @@ const rows = entries.map((e) =>
 )
 ```
 
-Template:
-- `packages/create-rezi/templates/dashboard/src/screens/overview.ts`
+Example source:
+- Public starter set
 
 ---
 
@@ -103,8 +103,8 @@ ui.box({
 })
 ```
 
-Template:
-- `packages/create-rezi/templates/animation-lab/src/screens/reactor-lab.ts`
+Example source:
+- Public starter set
 
 ---
 

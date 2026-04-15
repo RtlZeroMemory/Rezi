@@ -9,11 +9,7 @@ import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
-import {
-  runBlessedLineScenario,
-  runInkLineScenario,
-  runReziLineScenario,
-} from "./terminalLineBench.js";
+import { runBlessedLineScenario, runReziLineScenario } from "./terminalLineBench.js";
 import { buildTerminalMemorySoakLines } from "./terminalWorkloads.js";
 
 export const terminalMemorySoakScenario: Scenario = {
@@ -21,15 +17,13 @@ export const terminalMemorySoakScenario: Scenario = {
   description: "Sustained churn workload to observe memory growth and long-run stability",
   defaultConfig: { warmup: 150, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120 }],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runReziLineScenario(config, params, buildTerminalMemorySoakLines);
-      case "ink":
-        return runInkLineScenario(config, params, buildTerminalMemorySoakLines);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

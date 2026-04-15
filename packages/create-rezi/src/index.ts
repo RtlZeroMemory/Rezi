@@ -87,9 +87,7 @@ function printHelp(): void {
   stdout.write("  npm create rezi my-app\n");
   stdout.write("  bun create rezi my-app\n\n");
   stdout.write("Options:\n");
-  stdout.write(
-    "  --template, -t <name>       dashboard | stress-test | cli-tool | animation-lab | minimal | starship\n",
-  );
+  stdout.write("  --template, -t <name>       minimal | cli-tool | starship\n");
   stdout.write("  --no-install                Skip dependency install\n");
   stdout.write("  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n");
   stdout.write("  --list-templates            Show templates and highlights\n");
@@ -153,24 +151,15 @@ async function promptTemplate(rl: ReturnType<typeof createInterface>): Promise<s
   const answer = await rl.question(`Template (1-${TEMPLATE_DEFINITIONS.length}, default 1): `);
   const trimmed = answer.trim();
   if (!trimmed) {
-    return TEMPLATE_DEFINITIONS[0]?.key ?? "dashboard";
+    return TEMPLATE_DEFINITIONS[0]?.key ?? "minimal";
   }
 
   const asNumber = Number(trimmed);
   if (!Number.isNaN(asNumber) && asNumber >= 1 && asNumber <= TEMPLATE_DEFINITIONS.length) {
-    return TEMPLATE_DEFINITIONS[asNumber - 1]?.key ?? TEMPLATE_DEFINITIONS[0]?.key ?? "dashboard";
+    return TEMPLATE_DEFINITIONS[asNumber - 1]?.key ?? TEMPLATE_DEFINITIONS[0]?.key ?? "minimal";
   }
 
   return trimmed;
-}
-
-async function confirmStressTemplate(rl: ReturnType<typeof createInterface>): Promise<boolean> {
-  stdout.write("\nSafety check for stress-test template:\n");
-  stdout.write("  - This template intentionally drives heavy CPU and optional disk I/O load.\n");
-  stdout.write("  - Turbo/write-flood modes increase system pressure.\n");
-  const answer = await rl.question("Continue with stress-test? (y/N): ");
-  const normalized = answer.trim().toLowerCase();
-  return normalized === "y" || normalized === "yes";
 }
 
 function runInstall(pm: PackageManager, targetDir: string): void {
@@ -231,20 +220,6 @@ async function main(): Promise<void> {
       stdout.write(`Use one of: ${allowed}\n`);
       stdout.write("Run with --list-templates to see highlights.\n");
       throw new Error("Invalid template");
-    }
-
-    if (templateKey === "stress-test") {
-      if (isInteractive) {
-        const confirmed = await confirmStressTemplate(rl);
-        if (!confirmed) {
-          stdout.write("\nTemplate selection cancelled.\n");
-          return;
-        }
-      } else {
-        stdout.write(
-          "\nSafety notice: stress-test template selected in non-interactive mode; skipping prompt.\n",
-        );
-      }
     }
 
     const rawName = resolveTargetName(targetDir);

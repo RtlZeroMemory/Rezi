@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "paths": {
+      "@rezi-ui/core": ["packages/core/dist/index.d.ts"],
+      "@rezi-ui/core/*": ["packages/core/dist/*"],
+      "@rezi-ui/node": ["packages/node/dist/index.d.ts"],
+      "@rezi-ui/node/*": ["packages/node/dist/*"]
+    }
+  }
+}

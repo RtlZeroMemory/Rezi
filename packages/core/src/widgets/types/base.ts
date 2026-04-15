@@ -107,8 +107,6 @@ export type TextProps = Readonly<{
   maxWidth?: SizeConstraint;
   /** When true, text wraps to multiple lines instead of single-line truncation. */
   wrap?: boolean;
-  /** Internal callback used by ink-compat to transform rendered lines. */
-  __inkTransform?: (line: string, index: number) => string;
 }> &
   DisplayableProps;
 
@@ -153,7 +151,7 @@ export type BoxProps = Readonly<
     border?: "none" | "single" | "double" | "rounded" | "heavy" | "dashed" | "heavy-dashed";
     /**
      * Render individual border sides. Defaults to true when `border` is not "none".
-     * Mirrors Ink-style per-side border toggles.
+     * Matches per-side border toggles used by terminal UI libraries.
      */
     borderTop?: boolean;
     borderRight?: boolean;

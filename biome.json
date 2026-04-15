@@ -60,66 +60,6 @@
       }
     },
     {
-      "include": [
-        "packages/ink-compat/**",
-        "packages/ink-gradient-shim/**",
-        "packages/ink-spinner-shim/**",
-        "packages/rezi-ink-gradient-shim/**",
-        "packages/rezi-ink-spinner-shim/**"
-      ],
-      "linter": {
-        "rules": {
-          "complexity": {
-            "useLiteralKeys": "off"
-          },
-          "performance": {
-            "noDelete": "off"
-          },
-          "suspicious": {
-            "noControlCharactersInRegex": "off",
-            "noExplicitAny": "off"
-          }
-        }
-      }
-    },
-    {
-      "include": [
-        "packages/ink-compat/src/runtime/bridge.ts",
-        "packages/ink-compat/src/runtime/render.ts",
-        "packages/ink-compat/src/shims/ink-gradient.tsx",
-        "packages/ink-compat/src/shims/ink-spinner.tsx",
-        "packages/ink-compat/src/translation/colorMap.ts",
-        "packages/ink-compat/src/translation/propsToVNode.ts"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            "noNonNullAssertion": "off",
-            "useImportType": "off"
-          }
-        }
-      }
-    },
-    {
-      "include": ["packages/ink-compat/src/__tests__/**"],
-      "linter": {
-        "rules": {
-          "correctness": {
-            "noChildrenProp": "off",
-            "noUnusedImports": "off",
-            "useExhaustiveDependencies": "off"
-          },
-          "style": {
-            "noNonNullAssertion": "off",
-            "useImportType": "off"
-          },
-          "suspicious": {
-            "noExplicitAny": "off"
-          }
-        }
-      }
-    },
-    {
       "include": ["packages/core/src/drawlist/writers.gen.ts"],
       "linter": {
         "rules": {

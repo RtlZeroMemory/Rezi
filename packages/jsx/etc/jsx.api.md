@@ -4,145 +4,18 @@
 
 ```ts
 
-import { AccordionItem } from '@rezi-ui/core';
-import type { AccordionProps } from '@rezi-ui/core';
-import { AnimatedValue } from '@rezi-ui/core';
-import { AppShellOptions } from '@rezi-ui/core';
-import type { BadgeProps } from '@rezi-ui/core';
-import { BarChartItem } from '@rezi-ui/core';
-import type { BarChartProps } from '@rezi-ui/core';
-import { BoxPreset } from '@rezi-ui/core';
-import type { BoxProps } from '@rezi-ui/core';
-import { BoxShadow } from '@rezi-ui/core';
-import { BreadcrumbItem } from '@rezi-ui/core';
-import type { BreadcrumbProps } from '@rezi-ui/core';
-import { ButtonIntent } from '@rezi-ui/core';
-import type { ButtonProps } from '@rezi-ui/core';
-import type { CalloutProps } from '@rezi-ui/core';
-import type { CardOptions } from '@rezi-ui/core';
-import { ChartAxis } from '@rezi-ui/core';
-import type { CheckboxProps } from '@rezi-ui/core';
-import type { CodeEditorProps } from '@rezi-ui/core';
-import { ColorTokens } from '@rezi-ui/core';
-import { CommandItem } from '@rezi-ui/core';
-import type { CommandPaletteProps } from '@rezi-ui/core';
-import { CommandSource } from '@rezi-ui/core';
-import { conditionalConstraints } from '@rezi-ui/core';
-import { ConstraintExpr } from '@rezi-ui/core';
-import { ConstraintValue } from '@rezi-ui/core';
-import { defineWidget } from '@rezi-ui/core';
-import { DialogAction } from '@rezi-ui/core';
-import { DialogActionIntent } from '@rezi-ui/core';
-import { DialogProps } from '@rezi-ui/core';
-import type { DiffViewerProps } from '@rezi-ui/core';
-import type { DividerProps } from '@rezi-ui/core';
-import { DropdownItem } from '@rezi-ui/core';
-import { DropdownProps } from '@rezi-ui/core';
-import { each } from '@rezi-ui/core';
-import { eachInline } from '@rezi-ui/core';
-import type { EmptyProps } from '@rezi-ui/core';
-import { ErrorBoundaryError } from '@rezi-ui/core';
-import { ErrorBoundaryProps } from '@rezi-ui/core';
-import type { ErrorDisplayProps } from '@rezi-ui/core';
-import { expr } from '@rezi-ui/core';
-import type { FieldProps } from '@rezi-ui/core';
-import { FileNode } from '@rezi-ui/core';
-import { FileNodeState } from '@rezi-ui/core';
-import type { FilePickerProps } from '@rezi-ui/core';
-import type { FileTreeExplorerProps } from '@rezi-ui/core';
-import { fluid } from '@rezi-ui/core';
-import { FocusAnnouncerProps } from '@rezi-ui/core';
-import type { GaugeProps } from '@rezi-ui/core';
-import { groupConstraints } from '@rezi-ui/core';
-import { HeaderOptions } from '@rezi-ui/core';
-import { heightConstraints } from '@rezi-ui/core';
-import type { IconProps } from '@rezi-ui/core';
-import type { InputProps } from '@rezi-ui/core';
-import { isConstraintExpr } from '@rezi-ui/core';
-import type { KbdProps } from '@rezi-ui/core';
-import { LayerProps } from '@rezi-ui/core';
-import type { LayersProps } from '@rezi-ui/core';
-import { LineChartSeries } from '@rezi-ui/core';
-import { LogEntry } from '@rezi-ui/core';
-import { LogLevel } from '@rezi-ui/core';
-import type { LogsConsoleProps } from '@rezi-ui/core';
-import { MasterDetailOptions } from '@rezi-ui/core';
-import { match } from '@rezi-ui/core';
-import { maybe } from '@rezi-ui/core';
-import type { MiniChartProps } from '@rezi-ui/core';
-import { ModalProps } from '@rezi-ui/core';
-import { NodeState } from '@rezi-ui/core';
-import { PageOptions } from '@rezi-ui/core';
-import type { PaginationProps } from '@rezi-ui/core';
-import type { PanelGroupProps } from '@rezi-ui/core';
-import { ParallelAnimationEntry } from '@rezi-ui/core';
-import { PlaybackControl } from '@rezi-ui/core';
-import type { ProgressProps } from '@rezi-ui/core';
-import type { RadioGroupProps } from '@rezi-ui/core';
-import { recipe } from '@rezi-ui/core';
-import type { RegisteredBinding } from '@rezi-ui/core';
-import type { ResizablePanelProps } from '@rezi-ui/core';
-import { rgb } from '@rezi-ui/core';
-import { Rgb24 } from '@rezi-ui/core';
-import type { RichTextProps } from '@rezi-ui/core';
-import { RichTextSpan } from '@rezi-ui/core';
-import type { RouteDefinition } from '@rezi-ui/core';
-import type { RouterApi } from '@rezi-ui/core';
-import type { RouterBreadcrumbProps } from '@rezi-ui/core';
-import type { RouterTabsProps } from '@rezi-ui/core';
-import { SelectOption } from '@rezi-ui/core';
-import type { SelectProps } from '@rezi-ui/core';
-import { show } from '@rezi-ui/core';
-import { SiblingAggregation } from '@rezi-ui/core';
-import { SidebarItem } from '@rezi-ui/core';
-import { SidebarOptions } from '@rezi-ui/core';
-import type { SkeletonProps } from '@rezi-ui/core';
-import type { SliderProps } from '@rezi-ui/core';
-import { spaceConstraints } from '@rezi-ui/core';
-import type { SpacerProps } from '@rezi-ui/core';
-import { SpaceTerm } from '@rezi-ui/core';
-import type { SparklineProps } from '@rezi-ui/core';
-import type { SpinnerProps } from '@rezi-ui/core';
-import type { SplitPaneProps } from '@rezi-ui/core';
-import { StatusBarOptions } from '@rezi-ui/core';
-import type { StatusProps } from '@rezi-ui/core';
-import { TableColumn } from '@rezi-ui/core';
-import { TableProps } from '@rezi-ui/core';
-import { TabsItem } from '@rezi-ui/core';
-import type { TabsProps } from '@rezi-ui/core';
-import type { TagProps } from '@rezi-ui/core';
-import type { TextareaProps } from '@rezi-ui/core';
-import type { TextProps } from '@rezi-ui/core';
-import { TextStyle } from '@rezi-ui/core';
-import { TextVariant } from '@rezi-ui/core';
-import type { ThemeOverrides } from '@rezi-ui/core';
-import { Toast } from '@rezi-ui/core';
-import { ToastAction } from '@rezi-ui/core';
-import type { ToastContainerProps } from '@rezi-ui/core';
-import { ToastPosition } from '@rezi-ui/core';
-import type { ToolApprovalDialogProps } from '@rezi-ui/core';
-import type { ToolbarOptions } from '@rezi-ui/core';
-import { ToolRequest } from '@rezi-ui/core';
-import { TreeProps } from '@rezi-ui/core';
-import { UseAnimatedValueConfig } from '@rezi-ui/core';
-import { UseChainConfig } from '@rezi-ui/core';
-import { UseParallelConfig } from '@rezi-ui/core';
-import type { VirtualListProps } from '@rezi-ui/core';
-import { visibilityConstraints } from '@rezi-ui/core';
-import { VNode } from '@rezi-ui/core';
-import { when } from '@rezi-ui/core';
-import { WidgetContext } from '@rezi-ui/core';
-import { WidgetMetric } from '@rezi-ui/core';
-import { WidgetSize } from '@rezi-ui/core';
-import { WidgetTone } from '@rezi-ui/core';
-import { WidgetVariant } from '@rezi-ui/core';
-import { widthConstraints } from '@rezi-ui/core';
-
 // @public (undocumented)
 export function Accordion(props: AccordionJsxProps): VNode;
 
-export { AccordionItem }
+// @public
+export type AccordionItem = Readonly<{
+    key: string;
+    title: string;
+    content: VNode;
+}>;
 
+// Warning: (ae-forgotten-export) The symbol "AccordionProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type AccordionJsxProps = LeafProps<AccordionProps>;
 
@@ -159,7 +32,12 @@ export type ActionsOptions = Readonly<{
     gap?: RowProps["gap"];
 }>;
 
-export { AnimatedValue }
+// @public (undocumented)
+export type AnimatedValue = Readonly<{
+    value: number;
+    velocity: number;
+    isAnimating: boolean;
+}>;
 
 // @public (undocumented)
 export function AppShell(props: AppShellJsxProps): VNode;
@@ -167,51 +45,91 @@ export function AppShell(props: AppShellJsxProps): VNode;
 // @public (undocumented)
 export type AppShellJsxProps = LeafProps<AppShellOptions>;
 
-export { AppShellOptions }
+// Warning: (ae-forgotten-export) The symbol "LayoutConstraints" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type AppShellOptions = Readonly<{
+    id?: string;
+    key?: string;
+    header?: VNode | null;
+    sidebar?: AppShellSidebar | null;
+    body: VNode;
+    footer?: VNode | null;
+    p?: SpacingValue;
+    gap?: number;
+} & LayoutConstraints>;
 
 // @public (undocumented)
 export function Badge(props: BadgeJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "BadgeProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type BadgeJsxProps = LeafProps<BadgeProps>;
 
 // @public (undocumented)
 export function BarChart(props: BarChartJsxProps): VNode;
 
-export { BarChartItem }
+// @public
+export type BarChartItem = Readonly<{
+    label: string;
+    value: number;
+    variant?: BadgeVariant;
+}>;
 
+// Warning: (ae-forgotten-export) The symbol "BarChartProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type BarChartJsxProps = LeafProps<BarChartProps>;
 
 // @public (undocumented)
 export function Box(props: BoxJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "BoxProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type BoxJsxProps = WithContainerChildren<BoxProps>;
 
-export { BoxPreset }
+// @public (undocumented)
+export type BoxPreset = "card" | "surface" | "well" | "elevated";
 
-export { BoxShadow }
+// @public
+export type BoxShadow = boolean | Readonly<{
+    offsetX?: number;
+    offsetY?: number;
+    density?: "light" | "medium" | "dense";
+}>;
 
 // @public (undocumented)
 export function Breadcrumb(props: BreadcrumbJsxProps): VNode;
 
-export { BreadcrumbItem }
+// @public
+export type BreadcrumbItem = Readonly<{
+    label: string;
+    onPress?: () => void;
+}>;
 
+// Warning: (ae-forgotten-export) The symbol "BreadcrumbProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type BreadcrumbJsxProps = LeafProps<BreadcrumbProps>;
 
 // @public (undocumented)
 export function Button(props: ButtonJsxProps): VNode;
 
-export { ButtonIntent }
+// @public (undocumented)
+export type ButtonIntent = "primary" | "secondary" | "danger" | "success" | "warning" | "link";
 
+// Warning: (ae-forgotten-export) The symbol "ButtonProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ButtonJsxProps = LeafProps<ButtonProps>;
 
 // @public (undocumented)
 export function Callout(props: CalloutJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "CalloutProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type CalloutJsxProps = LeafProps<CalloutProps>;
 
@@ -229,6 +147,8 @@ export type CanvasProps = Extract<VNode, {
 // @public (undocumented)
 export function Card(props: CardJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "CardOptions" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type CardJsxProps = WithContainerChildren<CardOptions>;
 
@@ -248,21 +168,44 @@ export type CenterOptions = Readonly<{
     p?: ColumnProps["p"];
 }>;
 
-export { ChartAxis }
+// @public (undocumented)
+export type ChartAxis = Readonly<{
+    label?: string;
+    min?: number;
+    max?: number;
+}>;
 
 // @public (undocumented)
 export function Checkbox(props: CheckboxJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "CheckboxProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type CheckboxJsxProps = LeafProps<CheckboxProps>;
 
 // @public (undocumented)
 export function CodeEditor(props: CodeEditorJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "CodeEditorProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type CodeEditorJsxProps = LeafProps<CodeEditorProps>;
 
-export { ColorTokens }
+// @public
+export type ColorTokens = Readonly<{
+    bg: BgTokens;
+    fg: FgTokens;
+    accent: AccentTokens;
+    success: Rgb24;
+    warning: Rgb24;
+    error: Rgb24;
+    info: Rgb24;
+    focus: FocusTokens;
+    selected: SelectedTokens;
+    disabled: DisabledTokens;
+    diagnostic: DiagnosticTokens;
+    border: BorderTokens;
+}>;
 
 // @public (undocumented)
 export function Column(props: ColumnJsxProps): VNode;
@@ -275,115 +218,237 @@ export type ColumnProps = Extract<VNode, {
     kind: "column";
 }>["props"];
 
-export { CommandItem }
+// @public
+export type CommandItem = Readonly<{
+    id: string;
+    label: string;
+    description?: string;
+    shortcut?: string;
+    icon?: string;
+    sourceId: string;
+    data?: unknown;
+    disabled?: boolean;
+}>;
 
 // @public (undocumented)
 export function CommandPalette(props: CommandPaletteJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "CommandPaletteProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type CommandPaletteJsxProps = LeafProps<CommandPaletteProps>;
 
-export { CommandSource }
+// @public
+export type CommandSource = Readonly<{
+    id: string;
+    name: string;
+    prefix?: string;
+    getItems: (query: string) => readonly CommandItem[] | Promise<readonly CommandItem[]>;
+    priority?: number;
+}>;
 
 // @public (undocumented)
 export type ComponentFunction<P = never> = (props: P) => VNode;
 
-export { conditionalConstraints }
+// @public (undocumented)
+export const conditionalConstraints: Readonly<{
+    ifThenElse(cond: ConstraintValue, thenValue: ConstraintValue, elseValue: ConstraintValue): ConstraintExpr;
+}>;
 
-export { ConstraintExpr }
+// @public (undocumented)
+export type ConstraintExpr = Readonly<{
+    __brand: "ConstraintExpr";
+    source: string;
+    ast: ExprNode;
+    refs: ReadonlySet<string>;
+    hasIntrinsic: boolean;
+    hasSiblingAggregation: boolean;
+}>;
 
-export { ConstraintValue }
+// @public (undocumented)
+export type ConstraintValue = number | ConstraintExpr;
 
 // @public
 export function createElement(type: JsxElementType, props: Readonly<Record<string, unknown>> | null, key?: string): VNode;
 
-export { defineWidget }
+// Warning: (ae-forgotten-export) The symbol "WidgetPropsBase" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "DefineWidgetOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "WidgetFactory" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function defineWidget<Props extends WidgetPropsBase, State = void>(render: (props: Props, ctx: WidgetContext<State>) => VNode, options?: DefineWidgetOptions): WidgetFactory<Props>;
 
 // @public (undocumented)
 export function Dialog(props: DialogJsxProps): VNode;
 
-export { DialogAction }
+// @public
+export type DialogAction = Readonly<{
+    id?: string;
+    label: string;
+    intent?: DialogActionIntent;
+    onPress: () => void;
+    disabled?: boolean;
+    focusable?: boolean;
+}>;
 
-export { DialogActionIntent }
+// @public
+export type DialogActionIntent = "primary" | "danger";
 
 // @public (undocumented)
 export type DialogJsxProps = LeafProps<DialogProps>;
 
-export { DialogProps }
+// @public
+export type DialogProps = Readonly<Omit<ModalProps, "content" | "actions"> & {
+    message: string | VNode;
+    actions: readonly DialogAction[];
+}>;
 
 // @public (undocumented)
 export function DiffViewer(props: DiffViewerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "DiffViewerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type DiffViewerJsxProps = LeafProps<DiffViewerProps>;
 
 // @public (undocumented)
 export function Divider(props: DividerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "DividerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type DividerJsxProps = LeafProps<DividerProps>;
 
 // @public (undocumented)
 export function Dropdown(props: DropdownJsxProps): VNode;
 
-export { DropdownItem }
+// @public
+export type DropdownItem = Readonly<{
+    id: string;
+    label: string;
+    shortcut?: string;
+    disabled?: boolean;
+    divider?: boolean;
+}>;
 
 // @public (undocumented)
 export type DropdownJsxProps = LeafProps<DropdownProps>;
 
-export { DropdownProps }
+// @public
+export type DropdownProps = Readonly<{
+    id: string;
+    key?: string;
+    anchorId: string;
+    position?: DropdownPosition;
+    frameStyle?: OverlayFrameStyle;
+    items: readonly DropdownItem[];
+    onSelect?: (item: DropdownItem) => void;
+    onClose?: () => void;
+    dsVariant?: WidgetVariant;
+    dsTone?: WidgetTone;
+    dsSize?: WidgetSize;
+}>;
 
-export { each }
+// Warning: (ae-forgotten-export) The symbol "EachOptions" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export function each<T>(items: readonly T[], render: (item: T, index: number) => VNode, options: EachOptions<T>): VNode;
 
-export { eachInline }
+// Warning: (ae-forgotten-export) The symbol "EachInlineOptions" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export function eachInline<T>(items: readonly T[], render: (item: T, index: number) => VNode, options: EachInlineOptions<T>): readonly VNode[];
 
 // @public (undocumented)
 export function Empty(props: EmptyJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "EmptyProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type EmptyJsxProps = LeafProps<EmptyProps>;
 
 // @public (undocumented)
 export function ErrorBoundary(props: ErrorBoundaryJsxProps): VNode;
 
-export { ErrorBoundaryError }
+// @public
+export type ErrorBoundaryError = Readonly<{
+    code: "ZRUI_USER_CODE_THROW";
+    message: string;
+    detail: string;
+    stack?: string;
+    retry: () => void;
+}>;
 
 // @public (undocumented)
 export type ErrorBoundaryJsxProps = WithSingleChild<ErrorBoundaryProps>;
 
-export { ErrorBoundaryProps }
+// @public
+export type ErrorBoundaryProps = Readonly<{
+    key?: string;
+    children: VNode;
+    fallback: (error: ErrorBoundaryError) => VNode;
+}>;
 
 // @public (undocumented)
 export function ErrorDisplay(props: ErrorDisplayJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "ErrorDisplayProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ErrorDisplayJsxProps = LeafProps<ErrorDisplayProps>;
 
-export { expr }
+// @public (undocumented)
+export function expr(source: string): ConstraintExpr;
 
 // @public (undocumented)
 export function Field(props: FieldJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "FieldProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type FieldJsxProps = WithSingleChild<FieldProps>;
 
-export { FileNode }
+// @public
+export type FileNode = Readonly<{
+    name: string;
+    path: string;
+    type: "file" | "directory";
+    children?: readonly FileNode[];
+    status?: "modified" | "staged" | "untracked" | "deleted" | "renamed";
+}>;
 
-export { FileNodeState }
+// @public
+export type FileNodeState = Readonly<{
+    expanded: boolean;
+    selected: boolean;
+    focused: boolean;
+    depth: number;
+    isFirst: boolean;
+    isLast: boolean;
+    hasChildren: boolean;
+}>;
 
 // @public (undocumented)
 export function FilePicker(props: FilePickerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "FilePickerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type FilePickerJsxProps = LeafProps<FilePickerProps>;
 
 // @public (undocumented)
 export function FileTreeExplorer(props: FileTreeExplorerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "FileTreeExplorerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type FileTreeExplorerJsxProps = LeafProps<FileTreeExplorerProps>;
 
-export { fluid }
+// Warning: (ae-forgotten-export) The symbol "FluidValueOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "FluidValue" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export function fluid(min: number, max: number, options?: FluidValueOptions): FluidValue;
 
 // @public (undocumented)
 export function FocusAnnouncer(props: FocusAnnouncerJsxProps): VNode;
@@ -391,7 +456,12 @@ export function FocusAnnouncer(props: FocusAnnouncerJsxProps): VNode;
 // @public (undocumented)
 export type FocusAnnouncerJsxProps = LeafProps<FocusAnnouncerProps>;
 
-export { FocusAnnouncerProps }
+// @public
+export type FocusAnnouncerProps = Readonly<{
+    key?: string;
+    emptyText?: string;
+    style?: TextStyle;
+}>;
 
 // @public (undocumented)
 export function FocusTrap(props: FocusTrapJsxProps): VNode;
@@ -437,6 +507,8 @@ export function Fragment(props: {
 // @public (undocumented)
 export function Gauge(props: GaugeJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "GaugeProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type GaugeJsxProps = LeafProps<GaugeProps>;
 
@@ -456,7 +528,17 @@ export type GridPropsWithOptionalKey = GridProps & {
     key?: string;
 };
 
-export { groupConstraints }
+// @public (undocumented)
+export const groupConstraints: Readonly<{
+    maxSiblingWidth(id: string): ConstraintExpr;
+    maxSiblingHeight(id: string): ConstraintExpr;
+    maxSiblingMinWidth(id: string): ConstraintExpr;
+    maxSiblingMinHeight(id: string): ConstraintExpr;
+    sumSiblingWidth(id: string): ConstraintExpr;
+    sumSiblingHeight(id: string): ConstraintExpr;
+    sumSiblingMinWidth(id: string): ConstraintExpr;
+    sumSiblingMinHeight(id: string): ConstraintExpr;
+}>;
 
 // @public
 export const h: typeof createElement;
@@ -467,7 +549,14 @@ export function Header(props: HeaderJsxProps): VNode;
 // @public (undocumented)
 export type HeaderJsxProps = LeafProps<HeaderOptions>;
 
-export { HeaderOptions }
+// @public (undocumented)
+export type HeaderOptions = Readonly<{
+    id?: string;
+    key?: string;
+    title: string;
+    subtitle?: string;
+    actions?: readonly VNode[];
+}>;
 
 // @public (undocumented)
 export function Heatmap(props: HeatmapJsxProps): VNode;
@@ -480,11 +569,47 @@ export type HeatmapProps = Extract<VNode, {
     kind: "heatmap";
 }>["props"];
 
-export { heightConstraints }
+// @public (undocumented)
+export const heightConstraints: Readonly<{
+    percentOfParent(ratio: number): ConstraintExpr;
+    percentOfViewport(ratio: number): ConstraintExpr;
+    minViewportPercent(options: Readonly<{
+        ratio: number;
+        min: number;
+    }>): ConstraintExpr;
+    stepsByViewportHeight(options: Readonly<{
+        steps: readonly Readonly<{
+            below: number;
+            value: ConstraintValue;
+        }>[];
+    }>): ConstraintExpr;
+    clampedPercentOfParent(options: Readonly<{
+        ratio: number;
+        min: number;
+        max: number;
+    }>): ConstraintExpr;
+    clampedPercentOfViewport(options: Readonly<{
+        ratio: number;
+        min: number;
+        max: number;
+    }>): ConstraintExpr;
+    clampedViewportMinus(options: Readonly<{
+        minus: number;
+        min: number;
+        max: number;
+    }>): ConstraintExpr;
+    clampedIntrinsicPlus(options: Readonly<{
+        pad: number;
+        min: number;
+        max?: number | "parent";
+    }>): ConstraintExpr;
+}>;
 
 // @public (undocumented)
 export function Icon(props: IconJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "IconProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type IconJsxProps = LeafProps<IconProps>;
 
@@ -502,10 +627,13 @@ export type ImageProps = Extract<VNode, {
 // @public (undocumented)
 export function Input(props: InputJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "InputProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type InputJsxProps = LeafProps<InputProps>;
 
-export { isConstraintExpr }
+// @public (undocumented)
+export function isConstraintExpr(value: unknown): value is ConstraintExpr;
 
 // @public
 export type JsxChild = VNode | string | number | boolean | null | undefined;
@@ -528,6 +656,8 @@ export type JsxTextChildren = JsxTextChild | readonly JsxTextChildren[];
 // @public (undocumented)
 export function Kbd(props: KbdJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "KbdProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type KbdJsxProps = LeafProps<KbdProps>;
 
@@ -556,11 +686,24 @@ export function Layer(props: LayerJsxProps): VNode;
 // @public (undocumented)
 export type LayerJsxProps = LeafProps<LayerProps>;
 
-export { LayerProps }
+// @public
+export type LayerProps = Readonly<{
+    id: string;
+    key?: string;
+    zIndex?: number;
+    frameStyle?: OverlayFrameStyle;
+    backdrop?: BackdropStyle;
+    modal?: boolean;
+    closeOnEscape?: boolean;
+    onClose?: () => void;
+    content: VNode;
+}>;
 
 // @public (undocumented)
 export function Layers(props: LayersJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "LayersProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type LayersJsxProps = WithContainerChildren<LayersProps>;
 
@@ -582,7 +725,12 @@ export type LineChartProps = Extract<VNode, {
     kind: "lineChart";
 }>["props"];
 
-export { LineChartSeries }
+// @public (undocumented)
+export type LineChartSeries = Readonly<{
+    data: readonly number[];
+    color: string;
+    label?: string;
+}>;
 
 // @public (undocumented)
 export function Link(props: LinkJsxProps): VNode;
@@ -595,13 +743,27 @@ export type LinkProps = Extract<VNode, {
     kind: "link";
 }>["props"];
 
-export { LogEntry }
+// @public
+export type LogEntry = Readonly<{
+    id: string;
+    timestamp: number;
+    level: LogLevel;
+    source: string;
+    message: string;
+    details?: string;
+    tokens?: TokenCount;
+    durationMs?: number;
+    costCents?: number;
+}>;
 
-export { LogLevel }
+// @public
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
 
 // @public (undocumented)
 export function LogsConsole(props: LogsConsoleJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "LogsConsoleProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type LogsConsoleJsxProps = LeafProps<LogsConsoleProps>;
 
@@ -611,15 +773,27 @@ export function MasterDetail(props: MasterDetailJsxProps): VNode;
 // @public (undocumented)
 export type MasterDetailJsxProps = LeafProps<MasterDetailOptions>;
 
-export { MasterDetailOptions }
+// @public (undocumented)
+export type MasterDetailOptions = Readonly<{
+    id?: string;
+    key?: string;
+    master: VNode;
+    detail: VNode;
+    masterWidth?: number;
+    gap?: number;
+}>;
 
-export { match }
+// @public (undocumented)
+export function match<T extends string | number>(value: T, cases: Partial<Record<T, (() => VNode) | VNode>> & Record<"_", (() => VNode) | VNode>): VNode | null;
 
-export { maybe }
+// @public (undocumented)
+export function maybe<T>(value: T | null | undefined, render: (value: T) => VNode): VNode | null;
 
 // @public (undocumented)
 export function MiniChart(props: MiniChartJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "MiniChartProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type MiniChartJsxProps = LeafProps<MiniChartProps>;
 
@@ -629,9 +803,38 @@ export function Modal(props: ModalJsxProps): VNode;
 // @public (undocumented)
 export type ModalJsxProps = LeafProps<ModalProps>;
 
-export { ModalProps }
+// @public
+export type ModalProps = Readonly<{
+    id: string;
+    key?: string;
+    title?: string;
+    content: VNode;
+    actions?: readonly VNode[];
+    width?: SizeConstraintAtom;
+    height?: Exclude<SizeConstraintAtom, "auto">;
+    maxWidth?: Exclude<SizeConstraintAtom, "auto">;
+    minWidth?: Exclude<SizeConstraintAtom, "auto">;
+    minHeight?: Exclude<SizeConstraintAtom, "auto">;
+    frameStyle?: OverlayFrameStyle;
+    backdrop?: ModalBackdrop;
+    closeOnBackdrop?: boolean;
+    closeOnEscape?: boolean;
+    onClose?: () => void;
+    initialFocus?: string;
+    returnFocusTo?: string;
+}>;
 
-export { NodeState }
+// @public
+export type NodeState = Readonly<{
+    expanded: boolean;
+    selected: boolean;
+    focused: boolean;
+    loading: boolean;
+    depth: number;
+    isFirst: boolean;
+    isLast: boolean;
+    hasChildren: boolean;
+}>;
 
 // @public
 export function normalizeContainerChildren(children: JsxChildren | undefined): readonly VNode[];
@@ -645,11 +848,22 @@ export function Page(props: PageJsxProps): VNode;
 // @public (undocumented)
 export type PageJsxProps = LeafProps<PageOptions>;
 
-export { PageOptions }
+// @public (undocumented)
+export type PageOptions = Readonly<{
+    id?: string;
+    key?: string;
+    header?: VNode | null;
+    body: VNode;
+    footer?: VNode | null;
+    gap?: SpacingValue;
+    p?: SpacingValue;
+} & LayoutConstraints>;
 
 // @public (undocumented)
 export function Pagination(props: PaginationJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "PaginationProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type PaginationJsxProps = LeafProps<PaginationProps>;
 
@@ -659,6 +873,8 @@ export function Panel(props: PanelJsxProps): VNode;
 // @public (undocumented)
 export function PanelGroup(props: PanelGroupJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "PanelGroupProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type PanelGroupJsxProps = WithContainerChildren<PanelGroupProps>;
 
@@ -676,27 +892,68 @@ export type PanelOptions = Readonly<{
     style?: BoxProps["style"];
 }>;
 
-export { ParallelAnimationEntry }
+// @public (undocumented)
+export type ParallelAnimationEntry = Readonly<{
+    value: number;
+    isAnimating: boolean;
+}>;
 
-export { PlaybackControl }
+// @public
+export type PlaybackControl = Readonly<{
+    paused?: boolean;
+    reversed?: boolean;
+    rate?: number;
+}>;
 
 // @public (undocumented)
 export function Progress(props: ProgressJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "ProgressProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ProgressJsxProps = LeafProps<ProgressProps>;
 
 // @public (undocumented)
 export function RadioGroup(props: RadioGroupJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "RadioGroupProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type RadioGroupJsxProps = LeafProps<RadioGroupProps>;
 
-export { recipe }
+// @public
+export const recipe: {
+    readonly button: typeof buttonRecipe;
+    readonly input: typeof inputRecipe;
+    readonly surface: typeof surfaceRecipe;
+    readonly select: typeof selectRecipe;
+    readonly tabs: typeof tabsRecipe;
+    readonly accordion: typeof accordionRecipe;
+    readonly breadcrumb: typeof breadcrumbRecipe;
+    readonly pagination: typeof paginationRecipe;
+    readonly kbd: typeof kbdRecipe;
+    readonly sidebar: typeof sidebarRecipe;
+    readonly toolbar: typeof toolbarRecipe;
+    readonly dropdown: typeof dropdownRecipe;
+    readonly tree: typeof treeRecipe;
+    readonly table: typeof tableRecipe;
+    readonly modal: typeof modalRecipe;
+    readonly badge: typeof badgeRecipe;
+    readonly tag: typeof tagRecipe;
+    readonly text: typeof textRecipe;
+    readonly divider: typeof dividerRecipe;
+    readonly checkbox: typeof checkboxRecipe;
+    readonly slider: typeof sliderRecipe;
+    readonly progress: typeof progressRecipe;
+    readonly callout: typeof calloutRecipe;
+    readonly scrollbar: typeof scrollbarRecipe;
+};
 
 // @public (undocumented)
 export function ResizablePanel(props: ResizablePanelJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "ResizablePanelProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ResizablePanelJsxProps = WithContainerChildren<ResizablePanelProps>;
 
@@ -712,21 +969,31 @@ export interface ReziIntrinsicAttributes {
     key?: string;
 }
 
-export { rgb }
+// @public
+export function rgb(r: number, g: number, b: number): Rgb24;
 
-export { Rgb24 }
+// @public
+export type Rgb24 = number;
 
 // @public (undocumented)
 export function RichText(props: RichTextJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "RichTextProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type RichTextJsxProps = LeafProps<RichTextProps>;
 
-export { RichTextSpan }
+// @public
+export type RichTextSpan = Readonly<{
+    text: string;
+    style?: TextStyle;
+}>;
 
 // @public (undocumented)
 export function RouterBreadcrumb<S = unknown>(props: RouterBreadcrumbJsxProps<S>): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "RouterBreadcrumbProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type RouterBreadcrumbJsxProps<S = unknown> = Omit<RouterBreadcrumbProps, "key"> & {
     key?: string;
@@ -738,6 +1005,8 @@ export type RouterBreadcrumbJsxProps<S = unknown> = Omit<RouterBreadcrumbProps, 
 // @public (undocumented)
 export function RouterTabs<S = unknown>(props: RouterTabsJsxProps<S>): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "RouterTabsProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type RouterTabsJsxProps<S = unknown> = Omit<RouterTabsProps, "key"> & {
     key?: string;
@@ -771,62 +1040,114 @@ export type ScatterProps = Extract<VNode, {
 // @public (undocumented)
 export function Select(props: SelectJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SelectProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SelectJsxProps = LeafProps<SelectProps>;
 
-export { SelectOption }
+// @public
+export type SelectOption = Readonly<{
+    value: string;
+    label: string;
+    disabled?: boolean;
+}>;
 
-export { show }
+// @public (undocumented)
+export function show(condition: boolean, node: VNode, fallback?: VNode): VNode | null;
 
-export { SiblingAggregation }
+// @public (undocumented)
+export type SiblingAggregation = "none" | "max" | "sum";
 
 // @public (undocumented)
 export function Sidebar(props: SidebarJsxProps): VNode;
 
-export { SidebarItem }
+// @public (undocumented)
+export type SidebarItem = Readonly<{
+    id: string;
+    label: string;
+    icon?: string;
+}>;
 
 // @public (undocumented)
 export type SidebarJsxProps = LeafProps<SidebarOptions>;
 
-export { SidebarOptions }
+// @public (undocumented)
+export type SidebarOptions = Readonly<{
+    id?: string;
+    key?: string;
+    items: readonly SidebarItem[];
+    selected?: string;
+    onSelect?: (id: string) => void;
+    width?: number;
+    title?: string;
+}>;
 
 // @public (undocumented)
 export function Skeleton(props: SkeletonJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SkeletonProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SkeletonJsxProps = LeafProps<SkeletonProps>;
 
 // @public (undocumented)
 export function Slider(props: SliderJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SliderProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SliderJsxProps = LeafProps<SliderProps>;
 
-export { spaceConstraints }
+// @public (undocumented)
+export const spaceConstraints: Readonly<{
+    remainingWidth(options: Readonly<{
+        subtract: readonly SpaceTerm[];
+        minus?: number;
+        clampMin?: number;
+    }>): ConstraintExpr;
+    remainingHeight(options: Readonly<{
+        subtract: readonly SpaceTerm[];
+        minus?: number;
+        clampMin?: number;
+    }>): ConstraintExpr;
+}>;
 
 // @public (undocumented)
 export function Spacer(props: SpacerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SpacerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SpacerJsxProps = LeafProps<SpacerProps>;
 
-export { SpaceTerm }
+// @public (undocumented)
+export type SpaceTerm = Readonly<{
+    id: string;
+    metric?: WidgetMetric;
+    aggregation?: SiblingAggregation;
+}>;
 
 // @public (undocumented)
 export function Sparkline(props: SparklineJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SparklineProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SparklineJsxProps = LeafProps<SparklineProps>;
 
 // @public (undocumented)
 export function Spinner(props: SpinnerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SpinnerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SpinnerJsxProps = LeafProps<SpinnerProps>;
 
 // @public (undocumented)
 export function SplitPane(props: SplitPaneJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "SplitPaneProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type SplitPaneJsxProps = WithContainerChildren<SplitPaneProps>;
 
@@ -839,32 +1160,92 @@ export function StatusBar(props: StatusBarJsxProps): VNode;
 // @public (undocumented)
 export type StatusBarJsxProps = LeafProps<StatusBarOptions>;
 
-export { StatusBarOptions }
+// @public (undocumented)
+export type StatusBarOptions = Readonly<{
+    id?: string;
+    key?: string;
+    left?: readonly VNode[];
+    right?: readonly VNode[];
+    style?: TextStyle;
+}>;
 
+// Warning: (ae-forgotten-export) The symbol "StatusProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type StatusJsxProps = LeafProps<StatusProps>;
 
 // @public (undocumented)
 export function Table<T = unknown>(props: TableJsxProps<T>): VNode;
 
-export { TableColumn }
+// @public
+export type TableColumn<T = unknown> = Readonly<{
+    key: string;
+    header: string;
+    width?: number;
+    minWidth?: number;
+    maxWidth?: number;
+    flex?: number;
+    render?: (value: unknown, row: T, index: number) => VNode;
+    align?: "left" | "center" | "right";
+    overflow?: TableColumnOverflow;
+    sortable?: boolean;
+}>;
 
 // @public (undocumented)
 export type TableJsxProps<T = unknown> = LeafProps<TableProps<T>>;
 
-export { TableProps }
+// @public
+export type TableProps<T = unknown> = Readonly<{
+    id: string;
+    key?: string;
+    focusable?: boolean;
+    accessibleLabel?: string;
+    columns: readonly TableColumn<T>[];
+    data: readonly T[];
+    getRowKey: (row: T, index: number) => string;
+    rowHeight?: number;
+    headerHeight?: number;
+    selection?: readonly string[];
+    selectionMode?: "none" | "single" | "multi";
+    onSelectionChange?: (keys: readonly string[]) => void;
+    sortColumn?: string;
+    sortDirection?: "asc" | "desc";
+    onSort?: (column: string, direction: "asc" | "desc") => void;
+    onRowPress?: (row: T, index: number) => void;
+    onRowDoublePress?: (row: T, index: number) => void;
+    virtualized?: boolean;
+    overscan?: number;
+    stripedRows?: boolean;
+    stripeStyle?: TableStripeStyle;
+    selectionStyle?: TextStyle;
+    showHeader?: boolean;
+    border?: "none" | "single";
+    borderStyle?: TableBorderStyle;
+    focusConfig?: FocusConfig;
+    dsSize?: WidgetSize;
+    dsTone?: WidgetTone;
+}> & LayoutConstraints;
 
 // @public (undocumented)
 export function Tabs(props: TabsJsxProps): VNode;
 
-export { TabsItem }
+// @public
+export type TabsItem = Readonly<{
+    key: string;
+    label: string;
+    content: VNode;
+}>;
 
+// Warning: (ae-forgotten-export) The symbol "TabsProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type TabsJsxProps = LeafProps<TabsProps>;
 
 // @public (undocumented)
 export function Tag(props: TagJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "TagProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type TagJsxProps = LeafProps<TagProps>;
 
@@ -875,15 +1256,34 @@ export { Text_2 as Text }
 // @public (undocumented)
 export function Textarea(props: TextareaJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "TextareaProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type TextareaJsxProps = LeafProps<TextareaProps>;
 
+// Warning: (ae-forgotten-export) The symbol "TextProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type TextJsxProps = WithTextChildren<TextProps>;
 
-export { TextStyle }
+// @public
+export type TextStyle = Readonly<{
+    fg?: Rgb24;
+    bg?: Rgb24;
+    bold?: boolean;
+    dim?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    inverse?: boolean;
+    strikethrough?: boolean;
+    overline?: boolean;
+    blink?: boolean;
+    underlineStyle?: UnderlineStyle | undefined;
+    underlineColor?: Rgb24 | ThemeColor | undefined;
+}>;
 
-export { TextVariant }
+// @public
+export type TextVariant = "body" | "heading" | "caption" | "code" | "label";
 
 // @public (undocumented)
 export function Themed(props: ThemedJsxProps): VNode;
@@ -895,31 +1295,59 @@ export type ThemedJsxProps = Readonly<{
     children?: JsxChildren;
 }>;
 
-export { Toast }
+// @public
+export type Toast = Readonly<{
+    id: string;
+    message: string;
+    type: "info" | "success" | "warning" | "error";
+    duration?: number;
+    action?: ToastAction;
+    progress?: number;
+}>;
 
-export { ToastAction }
+// @public
+export type ToastAction = Readonly<{
+    label: string;
+    onAction: () => void;
+}>;
 
 // @public (undocumented)
 export function ToastContainer(props: ToastContainerJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "ToastContainerProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ToastContainerJsxProps = LeafProps<ToastContainerProps>;
 
-export { ToastPosition }
+// @public
+export type ToastPosition = "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
 
 // @public (undocumented)
 export function ToolApprovalDialog(props: ToolApprovalDialogJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "ToolApprovalDialogProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ToolApprovalDialogJsxProps = LeafProps<ToolApprovalDialogProps>;
 
 // @public (undocumented)
 export function Toolbar(props: ToolbarJsxProps): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "ToolbarOptions" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type ToolbarJsxProps = WithContainerChildren<ToolbarOptions>;
 
-export { ToolRequest }
+// @public
+export type ToolRequest = Readonly<{
+    toolId: string;
+    toolName: string;
+    description?: string;
+    command?: string;
+    fileChanges?: readonly ToolFileChange[];
+    riskLevel: "low" | "medium" | "high";
+    args?: Record<string, unknown>;
+}>;
 
 // @public (undocumented)
 export function Tree<T = unknown>(props: TreeJsxProps<T>): VNode;
@@ -927,37 +1355,349 @@ export function Tree<T = unknown>(props: TreeJsxProps<T>): VNode;
 // @public (undocumented)
 export type TreeJsxProps<T = unknown> = LeafProps<TreeProps<T>>;
 
-export { TreeProps }
+// @public
+export type TreeProps<T = unknown> = Readonly<{
+    id: string;
+    key?: string;
+    focusable?: boolean;
+    accessibleLabel?: string;
+    data: T | readonly T[];
+    getKey: (node: T) => string;
+    getChildren?: (node: T) => readonly T[] | undefined;
+    hasChildren?: (node: T) => boolean;
+    expanded: readonly string[];
+    selected?: string;
+    onChange: (node: T, expanded: boolean) => void;
+    onSelect?: (node: T) => void;
+    onPress?: (node: T) => void;
+    renderNode: (node: T, depth: number, state: NodeState) => VNode;
+    loadChildren?: (node: T) => Promise<readonly T[]>;
+    indentSize?: number;
+    showLines?: boolean;
+    dsVariant?: WidgetVariant;
+    dsTone?: WidgetTone;
+    dsSize?: WidgetSize;
+}> & LayoutConstraints;
 
-export { UseAnimatedValueConfig }
+// Warning: (ae-forgotten-export) The symbol "AnimatedValueConfig" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type UseAnimatedValueConfig = AnimatedValueConfig;
 
-export { UseChainConfig }
+// Warning: (ae-forgotten-export) The symbol "ChainAnimationConfig" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type UseChainConfig = readonly ChainAnimationConfig[];
 
-export { UseParallelConfig }
+// Warning: (ae-forgotten-export) The symbol "ParallelAnimationConfig" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type UseParallelConfig = readonly ParallelAnimationConfig[];
 
 // @public (undocumented)
 export function VirtualList<T = unknown>(props: VirtualListJsxProps<T>): VNode;
 
+// Warning: (ae-forgotten-export) The symbol "VirtualListProps" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type VirtualListJsxProps<T = unknown> = LeafProps<VirtualListProps<T>>;
 
-export { visibilityConstraints }
+// @public (undocumented)
+export const visibilityConstraints: Readonly<{
+    viewportWidthAtLeast(cols: number): ConstraintExpr;
+    viewportWidthBelow(cols: number): ConstraintExpr;
+    viewportHeightAtLeast(rows: number): ConstraintExpr;
+    viewportHeightBelow(rows: number): ConstraintExpr;
+    viewportAtLeast(options: Readonly<{
+        width?: number;
+        height?: number;
+    }>): ConstraintExpr;
+}>;
 
-export { VNode }
+// @public (undocumented)
+export type VNode = Readonly<{
+    kind: "text";
+    text: string;
+    props: TextProps;
+}> | Readonly<{
+    kind: "fragment";
+    props: FragmentProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "box";
+    props: BoxProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "fragment";
+    props: Readonly<{
+        key?: string;
+    }>;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "row";
+    props: RowProps_2;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "column";
+    props: ColumnProps_2;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "themed";
+    props: ThemedProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "grid";
+    props: GridProps_2;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "spacer";
+    props: SpacerProps;
+}> | Readonly<{
+    kind: "divider";
+    props: DividerProps;
+}> | Readonly<{
+    kind: "icon";
+    props: IconProps;
+}> | Readonly<{
+    kind: "spinner";
+    props: SpinnerProps;
+}> | Readonly<{
+    kind: "progress";
+    props: ProgressProps;
+}> | Readonly<{
+    kind: "skeleton";
+    props: SkeletonProps;
+}> | Readonly<{
+    kind: "richText";
+    props: RichTextProps;
+}> | Readonly<{
+    kind: "kbd";
+    props: KbdProps;
+}> | Readonly<{
+    kind: "badge";
+    props: BadgeProps;
+}> | Readonly<{
+    kind: "status";
+    props: StatusProps;
+}> | Readonly<{
+    kind: "tag";
+    props: TagProps;
+}> | Readonly<{
+    kind: "gauge";
+    props: GaugeProps;
+}> | Readonly<{
+    kind: "empty";
+    props: EmptyProps;
+}> | Readonly<{
+    kind: "errorDisplay";
+    props: ErrorDisplayProps;
+}> | Readonly<{
+    kind: "errorBoundary";
+    props: ErrorBoundaryProps;
+}> | Readonly<{
+    kind: "callout";
+    props: CalloutProps;
+}> | Readonly<{
+    kind: "sparkline";
+    props: SparklineProps;
+}> | Readonly<{
+    kind: "barChart";
+    props: BarChartProps;
+}> | Readonly<{
+    kind: "miniChart";
+    props: MiniChartProps;
+}> | Readonly<{
+    kind: "link";
+    props: LinkProps_2;
+}> | Readonly<{
+    kind: "canvas";
+    props: CanvasProps_2;
+}> | Readonly<{
+    kind: "image";
+    props: ImageProps_2;
+}> | Readonly<{
+    kind: "lineChart";
+    props: LineChartProps_2;
+}> | Readonly<{
+    kind: "scatter";
+    props: ScatterProps_2;
+}> | Readonly<{
+    kind: "heatmap";
+    props: HeatmapProps_2;
+}> | Readonly<{
+    kind: "button";
+    props: ButtonProps;
+}> | Readonly<{
+    kind: "input";
+    props: InputProps;
+}> | Readonly<{
+    kind: "focusAnnouncer";
+    props: FocusAnnouncerProps;
+}> | Readonly<{
+    kind: "slider";
+    props: SliderProps;
+}> | Readonly<{
+    kind: "focusZone";
+    props: FocusZoneProps_2;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "focusTrap";
+    props: FocusTrapProps_2;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "virtualList";
+    props: VirtualListProps<unknown>;
+}> | Readonly<{
+    kind: "layers";
+    props: LayersProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "modal";
+    props: ModalProps;
+}> | Readonly<{
+    kind: "dropdown";
+    props: DropdownProps;
+}> | Readonly<{
+    kind: "layer";
+    props: LayerProps;
+}> | Readonly<{
+    kind: "table";
+    props: TableProps<unknown>;
+}> | Readonly<{
+    kind: "tree";
+    props: TreeProps<unknown>;
+}> | Readonly<{
+    kind: "field";
+    props: FieldProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "select";
+    props: SelectProps;
+}> | Readonly<{
+    kind: "checkbox";
+    props: CheckboxProps;
+}> | Readonly<{
+    kind: "radioGroup";
+    props: RadioGroupProps;
+}> | Readonly<{
+    kind: "tabs";
+    props: TabsProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "accordion";
+    props: AccordionProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "breadcrumb";
+    props: BreadcrumbProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "pagination";
+    props: PaginationProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "commandPalette";
+    props: CommandPaletteProps;
+}> | Readonly<{
+    kind: "filePicker";
+    props: FilePickerProps;
+}> | Readonly<{
+    kind: "fileTreeExplorer";
+    props: FileTreeExplorerProps;
+}> | Readonly<{
+    kind: "splitPane";
+    props: SplitPaneProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "panelGroup";
+    props: PanelGroupProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "resizablePanel";
+    props: ResizablePanelProps;
+    children: readonly VNode[];
+}> | Readonly<{
+    kind: "codeEditor";
+    props: CodeEditorProps;
+}> | Readonly<{
+    kind: "diffViewer";
+    props: DiffViewerProps;
+}> | Readonly<{
+    kind: "toolApprovalDialog";
+    props: ToolApprovalDialogProps;
+}> | Readonly<{
+    kind: "logsConsole";
+    props: LogsConsoleProps;
+}> | Readonly<{
+    kind: "toastContainer";
+    props: ToastContainerProps;
+}>;
 
-export { when }
+// @public (undocumented)
+export function when(condition: boolean, trueBranch: () => VNode, falseBranch?: () => VNode): VNode | null;
 
-export { WidgetContext }
+// @public
+export type WidgetContext<State = void> = Readonly<{
+    id: (suffix: string) => string;
+    useState: <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
+    useReducer: <T, A>(reducer: (state: T, action: A) => T, initial: T | (() => T)) => [T, (action: A) => void];
+    useRef: <T>(initial: T) => {
+        current: T;
+    };
+    useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => T;
+    useCallback: <T extends UnknownCallback>(callback: T, deps?: readonly unknown[]) => T;
+    useEffect: {
+        (effect: () => void, deps?: readonly unknown[]): void;
+        (effect: () => () => void, deps?: readonly unknown[]): void;
+    };
+    useAppState: <T>(selector: (s: State) => T) => T;
+    useTheme: () => ColorTokens;
+    useViewport: () => ResponsiveViewportSnapshot;
+    invalidate: () => void;
+}>;
 
-export { WidgetMetric }
+// @public (undocumented)
+export type WidgetMetric = "width" | "height" | "minWidth" | "minHeight";
 
-export { WidgetSize }
+// @public
+export type WidgetSize = "sm" | "md" | "lg";
 
-export { WidgetTone }
+// @public
+export type WidgetTone = "default" | "primary" | "danger" | "success" | "warning";
 
-export { WidgetVariant }
+// @public
+export type WidgetVariant = "solid" | "soft" | "outline" | "ghost";
 
-export { widthConstraints }
+// @public (undocumented)
+export const widthConstraints: Readonly<{
+    percentOfParent(ratio: number): ConstraintExpr;
+    percentOfViewport(ratio: number): ConstraintExpr;
+    clampedPercentOfParent(options: Readonly<{
+        ratio: number;
+        min: number;
+        max: number;
+    }>): ConstraintExpr;
+    clampedViewportMinus(options: Readonly<{
+        minus: number;
+        min: number;
+        max: number;
+    }>): ConstraintExpr;
+    minViewportPercent(options: Readonly<{
+        ratio: number;
+        min: number;
+    }>): ConstraintExpr;
+    stepsByViewportWidth(options: Readonly<{
+        steps: readonly Readonly<{
+            below: number;
+            value: ConstraintValue;
+        }>[];
+    }>): ConstraintExpr;
+    clampedIntrinsicPlus(options: Readonly<{
+        pad: number;
+        min: number;
+        max?: number | "parent";
+    }>): ConstraintExpr;
+}>;
 
 // @public (undocumented)
 export type WithContainerChildren<P extends {
@@ -988,6 +1728,77 @@ export type WithTextChildren<P extends {
 }> = WithOptionalKey<P> & {
     children?: JsxTextChildren;
 };
+
+// Warnings were encountered during analysis:
+//
+// packages/core/src/constraints/types.ts:30:3 - (ae-forgotten-export) The symbol "ExprNode" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:195:3 - (ae-forgotten-export) The symbol "BgTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:198:3 - (ae-forgotten-export) The symbol "FgTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:201:3 - (ae-forgotten-export) The symbol "AccentTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:210:3 - (ae-forgotten-export) The symbol "FocusTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:211:3 - (ae-forgotten-export) The symbol "SelectedTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:212:3 - (ae-forgotten-export) The symbol "DisabledTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:215:3 - (ae-forgotten-export) The symbol "DiagnosticTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/theme/tokens.ts:218:3 - (ae-forgotten-export) The symbol "BorderTokens" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "buttonRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "inputRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "surfaceRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "selectRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "tabsRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "accordionRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "breadcrumbRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "paginationRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "kbdRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "sidebarRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "toolbarRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "dropdownRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "treeRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "tableRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "modalRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "badgeRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "tagRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "textRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "dividerRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "checkboxRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "sliderRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "progressRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "calloutRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/ui/recipes.ts:1570:20 - (ae-forgotten-export) The symbol "scrollbarRecipe" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/composition.ts:88:3 - (ae-forgotten-export) The symbol "UnknownCallback" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/composition.ts:128:3 - (ae-forgotten-export) The symbol "ResponsiveViewportSnapshot" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/style.ts:26:3 - (ae-forgotten-export) The symbol "UnderlineStyle" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/style.ts:27:3 - (ae-forgotten-export) The symbol "ThemeColor" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:259:34 - (ae-forgotten-export) The symbol "FragmentProps" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:262:29 - (ae-forgotten-export) The symbol "RowProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:263:32 - (ae-forgotten-export) The symbol "ColumnProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:264:32 - (ae-forgotten-export) The symbol "ThemedProps" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:265:30 - (ae-forgotten-export) The symbol "GridProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:286:30 - (ae-forgotten-export) The symbol "LinkProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:287:32 - (ae-forgotten-export) The symbol "CanvasProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:288:31 - (ae-forgotten-export) The symbol "ImageProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:289:35 - (ae-forgotten-export) The symbol "LineChartProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:290:33 - (ae-forgotten-export) The symbol "ScatterProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:291:33 - (ae-forgotten-export) The symbol "HeatmapProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:296:35 - (ae-forgotten-export) The symbol "FocusZoneProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:297:35 - (ae-forgotten-export) The symbol "FocusTrapProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/advanced.ts:538:3 - (ae-forgotten-export) The symbol "ToolFileChange" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/advanced.ts:602:3 - (ae-forgotten-export) The symbol "TokenCount" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/base.ts:772:3 - (ae-forgotten-export) The symbol "BadgeVariant" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:62:3 - (ae-forgotten-export) The symbol "SizeConstraintAtom" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:74:3 - (ae-forgotten-export) The symbol "ModalBackdrop" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:122:5 - (ae-forgotten-export) The symbol "AppShellSidebar" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:128:5 - (ae-forgotten-export) The symbol "SpacingValue" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:222:3 - (ae-forgotten-export) The symbol "DropdownPosition" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:224:3 - (ae-forgotten-export) The symbol "OverlayFrameStyle" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/overlaysShell.ts:251:3 - (ae-forgotten-export) The symbol "BackdropStyle" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/table.ts:56:3 - (ae-forgotten-export) The symbol "TableColumnOverflow" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/table.ts:102:3 - (ae-forgotten-export) The symbol "TableStripeStyle" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/table.ts:110:3 - (ae-forgotten-export) The symbol "TableBorderStyle" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/table.ts:112:3 - (ae-forgotten-export) The symbol "FocusConfig" needs to be exported by the entry point index.d.ts
+// src/types.ts:166:3 - (ae-forgotten-export) The symbol "ThemeOverrides" needs to be exported by the entry point index.d.ts
+// src/types.ts:236:3 - (ae-forgotten-export) The symbol "RegisteredBinding" needs to be exported by the entry point index.d.ts
+// src/types.ts:241:3 - (ae-forgotten-export) The symbol "RouterApi" needs to be exported by the entry point index.d.ts
+// src/types.ts:242:3 - (ae-forgotten-export) The symbol "RouteDefinition" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
