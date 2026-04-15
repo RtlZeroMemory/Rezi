@@ -1,75 +1,90 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { createTestRenderer } from "../../testing/index.js";
 import { ui } from "../ui.js";
 
 describe("data visualization widgets - edge cases", () => {
-  test("sparkline preserves min/max and accepts empty data", () => {
-    const populated = ui.sparkline([0, 1, Number.NaN, Number.POSITIVE_INFINITY], {
-      width: 8,
-      min: -1,
-      max: 2,
-      highRes: true,
-      blitter: "braille",
-    });
-    assert.equal(populated.kind, "sparkline");
-    assert.deepEqual(populated.props, {
-      data: [0, 1, Number.NaN, Number.POSITIVE_INFINITY],
-      width: 8,
-      min: -1,
-      max: 2,
-      highRes: true,
-      blitter: "braille",
-    });
+  test("sparkline renders a visible trend at the requested width", () => {
+    const output = createTestRenderer({ viewport: { cols: 20, rows: 4 } })
+      .render(ui.sparkline([1, 3, 2, 5], { width: 8 }))
+      .toText()
+      .trim();
 
-    const empty = ui.sparkline([]);
-    assert.equal(empty.kind, "sparkline");
-    assert.deepEqual(empty.props, { data: [] });
+    assert.equal(output.length, 8);
+    assert.equal(/[▁▂▃▄▅▆▇█]/.test(output), true);
   });
 
-  test("barChart preserves variants and supports empty arrays", () => {
-    const vnode = ui.barChart(
-      [
-        { label: "A", value: 1, variant: "default" },
-        { label: "B", value: 2, variant: "success" },
-        { label: "C", value: 3, variant: "warning" },
-        { label: "D", value: 4, variant: "error" },
-        { label: "E", value: 5, variant: "info" },
-      ],
-      {
-        orientation: "vertical",
-        showValues: false,
-        showLabels: true,
-        maxBarLength: 1000,
-        highRes: true,
-        blitter: "quadrant",
-      },
-    );
+  test("barChart renders horizontal and vertical text-mode output", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 12 } });
+    const horizontal = renderer
+      .render(
+        ui.barChart(
+          [
+            { label: "A", value: 3 },
+            { label: "B", value: 5 },
+          ],
+          { maxBarLength: 6, showValues: true },
+        ),
+      )
+      .toText();
+    const vertical = renderer
+      .render(
+        ui.barChart(
+          [
+            { label: "A", value: 3 },
+            { label: "B", value: 5 },
+          ],
+          { orientation: "vertical", maxBarLength: 4, showLabels: true, showValues: true },
+        ),
+      )
+      .toText();
 
-    assert.equal(vnode.kind, "barChart");
-    assert.equal(vnode.props.data.length, 5);
-    assert.equal(vnode.props.orientation, "vertical");
-    assert.equal(vnode.props.maxBarLength, 1000);
-    assert.equal(vnode.props.highRes, true);
-    assert.equal(vnode.props.blitter, "quadrant");
+    assert.equal(horizontal.includes("A"), true);
+    assert.equal(horizontal.includes("B"), true);
+    assert.equal(horizontal.includes("3"), true);
+    assert.equal(horizontal.includes("5"), true);
+    assert.equal(/[█▓░]/.test(horizontal), true);
 
-    const empty = ui.barChart([]);
-    assert.equal(empty.kind, "barChart");
-    assert.deepEqual(empty.props, { data: [] });
+    assert.equal(vertical.includes("AB"), true);
+    assert.equal(vertical.includes("3 5"), true);
+    assert.equal(/[█▓░]/.test(vertical), true);
   });
 
-  test("miniChart supports large arrays and optional max values", () => {
-    const values = Array.from({ length: 50 }, (_, i) => ({
-      label: `M${String(i)}`,
-      value: i,
-      max: 100,
-    }));
-    const vnode = ui.miniChart(values, { variant: "pills" });
-    assert.equal(vnode.kind, "miniChart");
-    assert.equal(vnode.props.values.length, 50);
-    assert.equal(vnode.props.variant, "pills");
+  test("miniChart renders bars and pills variants with visible percentages", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 6 } });
+    const bars = renderer
+      .render(
+        ui.miniChart(
+          [
+            { label: "CPU", value: 42, max: 100 },
+            { label: "MEM", value: 78, max: 100 },
+          ],
+          { variant: "bars" },
+        ),
+      )
+      .toText();
+    const pills = renderer
+      .render(
+        ui.miniChart(
+          [
+            { label: "CPU", value: 42, max: 100 },
+            { label: "MEM", value: 78, max: 100 },
+          ],
+          { variant: "pills" },
+        ),
+      )
+      .toText();
 
-    const noMax = ui.miniChart([{ label: "CPU", value: 42 }]);
-    assert.equal(noMax.kind, "miniChart");
-    assert.deepEqual(noMax.props, { values: [{ label: "CPU", value: 42 }] });
+    assert.equal(bars.includes("CPU:"), true);
+    assert.equal(bars.includes("MEM:"), true);
+    assert.equal(bars.includes("42%"), true);
+    assert.equal(bars.includes("78%"), true);
+    assert.equal(bars.includes("▓"), true);
+
+    assert.equal(pills.includes("CPU:"), true);
+    assert.equal(pills.includes("MEM:"), true);
+    assert.equal(pills.includes("42%"), true);
+    assert.equal(pills.includes("78%"), true);
+    assert.equal(pills.includes("●"), true);
   });
 
   test("lineChart, scatter, and heatmap preserve chart props", () => {
