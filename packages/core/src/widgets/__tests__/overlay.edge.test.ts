@@ -106,6 +106,39 @@ describe("overlay.edge - layout sizing and clamping", () => {
     assert.equal(result.value.rect.y + result.value.rect.h <= 12, true);
   });
 
+  test("measureOverlays toolApprovalDialog returns zero size when closed", () => {
+    const vnode = makeVNode("toolApprovalDialog", {
+      id: "approval",
+      open: false,
+      request: { toolId: "shell", toolName: "Shell", riskLevel: "low" },
+      onPress: () => undefined,
+      onClose: () => undefined,
+    });
+    const result = measureOverlays(vnode, 80, 24, "column", measureNode);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+
+    assert.deepEqual(result.value, { w: 0, h: 0 });
+  });
+
+  test("layoutOverlays toolApprovalDialog open is clamped within viewport", () => {
+    const vnode = makeVNode("toolApprovalDialog", {
+      id: "approval",
+      open: true,
+      request: { toolId: "shell", toolName: "Shell", riskLevel: "low" },
+      onPress: () => undefined,
+      onClose: () => undefined,
+    });
+    const result = layoutOverlays(vnode, 0, 0, 30, 10, 30, 10, "column", measureNode, layoutNode);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+
+    assert.equal(result.value.rect.x >= 0, true);
+    assert.equal(result.value.rect.y >= 0, true);
+    assert.equal(result.value.rect.x + result.value.rect.w <= 30, true);
+    assert.equal(result.value.rect.y + result.value.rect.h <= 10, true);
+  });
+
   test("layoutOverlays modal width=auto stays centered and bounded", () => {
     const content = makeVNode("text", { testW: 120, testH: 8, text: "content" });
     const actionA = makeVNode("text", { testW: 8, testH: 1, text: "ok" });
