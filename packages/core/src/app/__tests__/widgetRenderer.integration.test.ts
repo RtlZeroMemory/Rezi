@@ -1051,7 +1051,9 @@ describe("WidgetRenderer integration battery", () => {
       noRenderHooks(),
     );
     assert.ok(res.ok);
-    const text = createTestRenderer({ viewport: { cols: 40, rows: 10 } }).render(vnode).toText();
+    const text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(vnode)
+      .toText();
     assert.equal(text.includes("https://example.com/docs"), true);
 
     const rect = renderer.getRectByIdIndex().get("docs-link");
@@ -1068,9 +1070,7 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(presses, 0);
     assert.equal(renderer.getFocusedId(), "docs-link");
 
-    const up = renderer.routeEngineEvent(
-      mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }),
-    );
+    const up = renderer.routeEngineEvent(mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }));
     assert.deepEqual(up.action, { id: "docs-link", action: "press" });
     assert.equal(presses, 1);
     assert.equal(renderer.getFocusedId(), "docs-link");
@@ -1149,9 +1149,7 @@ describe("WidgetRenderer integration battery", () => {
     const down = renderer.routeEngineEvent(
       mouseEvent(clickX, clickY, 3, { timeMs: 1, buttons: 1 }),
     );
-    const up = renderer.routeEngineEvent(
-      mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }),
-    );
+    const up = renderer.routeEngineEvent(mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }));
 
     assert.equal(down.action, undefined);
     assert.equal(up.action, undefined);
