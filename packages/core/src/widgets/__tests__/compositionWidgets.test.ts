@@ -36,6 +36,53 @@ describe("composition widgets", () => {
     assert.ok(result.toText().includes("content"));
   });
 
+  test("ui.appShell renders header, sidebar, body, and footer in distinct visible regions", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 80, rows: 20 } });
+    const result = renderer.render(
+      ui.appShell({
+        header: ui.text("Header"),
+        sidebar: { content: ui.text("Nav"), width: 18 },
+        body: ui.text("Body"),
+        footer: ui.text("Footer"),
+      }),
+    );
+
+    const header = result.findText("Header");
+    const nav = result.findText("Nav");
+    const body = result.findText("Body");
+    const footer = result.findText("Footer");
+
+    assert.ok(header);
+    assert.ok(nav);
+    assert.ok(body);
+    assert.ok(footer);
+    if (!header || !nav || !body || !footer) return;
+
+    assert.equal(header.rect.y < body.rect.y, true);
+    assert.equal(nav.rect.x < body.rect.x, true);
+    assert.equal(footer.rect.y > body.rect.y, true);
+  });
+
+  test("ui.appShell sidebar shifts the body region to the right", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 80, rows: 20 } });
+    const withSidebar = renderer.render(
+      ui.appShell({
+        sidebar: { content: ui.text("Nav"), width: 18 },
+        body: ui.text("Body"),
+      }),
+    );
+    const withoutSidebar = renderer.render(ui.appShell({ body: ui.text("Body") }));
+
+    const withSidebarBody = withSidebar.findText("Body");
+    const withoutSidebarBody = withoutSidebar.findText("Body");
+
+    assert.ok(withSidebarBody);
+    assert.ok(withoutSidebarBody);
+    if (!withSidebarBody || !withoutSidebarBody) return;
+
+    assert.equal(withSidebarBody.rect.x > withoutSidebarBody.rect.x, true);
+  });
+
   test("ui.appShell forwards layout constraints and sidebar constraint widths", () => {
     const shellDisplay = visibilityConstraints.viewportWidthAtLeast(100);
     const shellWidth = widthConstraints.percentOfParent(0.9);
@@ -69,6 +116,25 @@ describe("composition widgets", () => {
     assert.equal(sidebarBox?.kind, "box");
     if (sidebarBox?.kind !== "box") return;
     assert.equal(sidebarBox.props.width, railWidth);
+  });
+
+  test("ui.appShell respects a fixed numeric sidebar width in layout", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 80, rows: 20 } });
+    const result = renderer.render(
+      ui.appShell({
+        sidebar: { content: ui.text("Nav"), width: 18 },
+        body: ui.text("Body"),
+      }),
+    );
+
+    const sidebarBox = result.nodes.find((node) => {
+      const props = node.props as { width?: number };
+      return node.kind === "box" && props.width === 18;
+    });
+    assert.ok(sidebarBox);
+    if (!sidebarBox) return;
+
+    assert.equal(sidebarBox.rect.w, 18);
   });
 
   test("constraint helpers format exponent inputs as trimmed decimal literals", () => {
