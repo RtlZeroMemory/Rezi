@@ -3,7 +3,10 @@ import { assert, test } from "@rezi-ui/testkit";
 import { createInstallEnv, resolveInstallCwd } from "../index.js";
 
 test("resolveInstallCwd resolves targetDir against the current base directory", () => {
-  assert.equal(resolveInstallCwd("my-app", "/tmp/rezi-parent"), resolve("/tmp/rezi-parent", "my-app"));
+  assert.equal(
+    resolveInstallCwd("my-app", "/tmp/rezi-parent"),
+    resolve("/tmp/rezi-parent", "my-app"),
+  );
 });
 
 test("createInstallEnv strips parent npm lifecycle metadata but preserves useful config", () => {

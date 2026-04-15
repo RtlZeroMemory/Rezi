@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.65] - 2026-04-15
+
+### CI / Tooling
+
+- **release**: Follow-up release tag after the failed `v0.1.0-alpha.64` publish gate; fixed the Biome formatting violation in the `create-rezi` Windows install regression test so the release pipeline can complete.
+
 ## [0.1.0-alpha.64] - 2026-04-15
 
 ### Breaking Changes
