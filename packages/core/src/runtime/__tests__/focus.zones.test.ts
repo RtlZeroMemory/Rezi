@@ -456,6 +456,26 @@ describe("focus zones - routeKeyWithZones", () => {
     assert.equal(res.nextZoneId, "z2");
   });
 
+  test("mixed focus list: stale activeZoneId does not skip re-entering the actual next zone", () => {
+    const zones = new Map<string, FocusZone>([
+      ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
+      ["z2", zone({ id: "z2", tabIndex: 1, focusableIds: ["b1"] })],
+    ]);
+
+    const res = routeKeyWithZones(
+      keyEvent(ZR_KEY_TAB),
+      routingCtx({
+        focusedId: "outside",
+        activeZoneId: "z1",
+        focusList: ["outside", "b1"],
+        zones,
+      }),
+    );
+
+    assert.equal(res.nextFocusedId, "b1");
+    assert.equal(res.nextZoneId, "z2");
+  });
+
   test("mixed focus list: Shift+TAB from non-zone item can enter previous zone", () => {
     const zones = new Map<string, FocusZone>([
       ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],

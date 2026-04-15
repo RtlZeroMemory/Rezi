@@ -1332,26 +1332,14 @@ describe("WidgetRenderer integration battery", () => {
     renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
     assert.deepEqual(changes, [["api"]]);
 
-    res = renderer.submitFrame(
-      () => view(),
-      undefined,
-      viewport,
-      defaultTheme,
-      noRenderHooks(),
-    );
+    res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
     assert.ok(res.ok);
     assert.equal(renderer.getFocusedId(), secondHeaderId);
 
     renderer.routeEngineEvent(keyEvent(32 /* SPACE */));
     assert.deepEqual(changes, [["api"], []]);
 
-    res = renderer.submitFrame(
-      () => view(),
-      undefined,
-      viewport,
-      defaultTheme,
-      noRenderHooks(),
-    );
+    res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
     assert.ok(res.ok);
     assert.equal(renderer.getFocusedId(), secondHeaderId);
   });

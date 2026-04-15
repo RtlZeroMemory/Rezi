@@ -51,9 +51,7 @@ function findMixedTraversalTarget(
 
   for (let step = 1; step <= total; step++) {
     const nextIndex =
-      move === "next"
-        ? (startIndex + step) % total
-        : (startIndex - step + total) % total;
+      move === "next" ? (startIndex + step) % total : (startIndex - step + total) % total;
     const candidate = focusList[nextIndex];
     if (candidate !== undefined && !excludedIds.has(candidate)) {
       return candidate;
@@ -170,7 +168,8 @@ export function routeKeyWithZones(
       }
 
       if (hasNonZonedFocusable) {
-        const containingZoneId = activeZoneId ?? (focusedId === null ? null : findZoneForId(zones, focusedId));
+        const containingZoneId =
+          focusedId === null ? activeZoneId : findZoneForId(zones, focusedId);
         if (focusedId !== null && containingZoneId !== null) {
           const containingZone = zones.get(containingZoneId);
           if (containingZone && containingZone.focusableIds.length > 0) {
@@ -215,7 +214,7 @@ export function routeKeyWithZones(
   const direction = keyToDirection(event.key);
   if (direction !== null && focusedId !== null) {
     // Find the zone containing the focused element
-    const containingZoneId = activeZoneId ?? findZoneForId(zones, focusedId);
+    const containingZoneId = findZoneForId(zones, focusedId);
     if (containingZoneId !== null) {
       const zone = zones.get(containingZoneId);
       if (zone && zone.navigation !== "none") {
