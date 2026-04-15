@@ -2,6 +2,9 @@ import { resolve } from "node:path";
 import { assert, test } from "@rezi-ui/testkit";
 import { createInstallEnv, resolveInstallCwd, resolveInstallInvocation } from "../index.js";
 
+const WINDOWS_ROAMING_NPM_EXEC_PATH =
+  "C:\\Users\\example\\AppData\\Roaming\\npm\\node_modules\\npm\\bin\\npm-cli.js";
+
 test("resolveInstallCwd resolves targetDir against the current base directory", () => {
   assert.equal(
     resolveInstallCwd("my-app", "/tmp/rezi-parent"),
@@ -58,17 +61,14 @@ test("resolveInstallInvocation prefers npm_execpath and falls back to node-adjac
   assert.deepEqual(
     resolveInstallInvocation("npm", {
       env: {
-        npm_execpath: "C:\\Users\\k3nig\\AppData\\Roaming\\npm\\node_modules\\npm\\bin\\npm-cli.js",
+        npm_execpath: WINDOWS_ROAMING_NPM_EXEC_PATH,
       },
       platform: "win32",
       nodeExecPath: "C:\\Program Files\\nodejs\\node.exe",
     }),
     {
       command: "C:\\Program Files\\nodejs\\node.exe",
-      args: [
-        "C:\\Users\\k3nig\\AppData\\Roaming\\npm\\node_modules\\npm\\bin\\npm-cli.js",
-        "install",
-      ],
+      args: [WINDOWS_ROAMING_NPM_EXEC_PATH, "install"],
     },
   );
 
