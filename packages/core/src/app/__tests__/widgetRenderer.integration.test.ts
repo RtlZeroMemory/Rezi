@@ -1027,6 +1027,55 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(presses, 2);
   });
 
+  test("link without a label uses the url text for mouse focus and press", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let presses = 0;
+    const vnode = ui.column({}, [
+      ui.link({
+        id: "docs-link",
+        url: "https://example.com/docs",
+        onPress: () => presses++,
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    const text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(vnode)
+      .toText();
+    assert.equal(text.includes("https://example.com/docs"), true);
+
+    const rect = renderer.getRectByIdIndex().get("docs-link");
+    assert.ok(rect !== undefined, "link rect should exist");
+    if (!rect) return;
+
+    const clickX = rect.x + Math.max(0, Math.floor((rect.w - 1) / 2));
+    const clickY = rect.y;
+
+    const down = renderer.routeEngineEvent(
+      mouseEvent(clickX, clickY, 3, { timeMs: 1, buttons: 1 }),
+    );
+    assert.equal(down.action, undefined);
+    assert.equal(presses, 0);
+    assert.equal(renderer.getFocusedId(), "docs-link");
+
+    const up = renderer.routeEngineEvent(mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }));
+    assert.deepEqual(up.action, { id: "docs-link", action: "press" });
+    assert.equal(presses, 1);
+    assert.equal(renderer.getFocusedId(), "docs-link");
+  });
+
   test("disabled link is not focusable and ignores Enter/Space", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
@@ -1061,6 +1110,51 @@ describe("WidgetRenderer integration battery", () => {
     renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
     renderer.routeEngineEvent(keyEvent(32 /* SPACE */));
     assert.equal(presses, 0);
+  });
+
+  test("disabled link ignores mouse clicks and stays unfocused", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let presses = 0;
+    const vnode = ui.column({}, [
+      ui.link({
+        id: "docs-link",
+        url: "https://example.com",
+        label: "Docs",
+        disabled: true,
+        onPress: () => presses++,
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const rect = renderer.getRectByIdIndex().get("docs-link");
+    assert.ok(rect !== undefined, "link rect should exist");
+    if (!rect) return;
+
+    const clickX = rect.x + Math.max(0, Math.floor((rect.w - 1) / 2));
+    const clickY = rect.y;
+
+    const down = renderer.routeEngineEvent(
+      mouseEvent(clickX, clickY, 3, { timeMs: 1, buttons: 1 }),
+    );
+    const up = renderer.routeEngineEvent(mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }));
+
+    assert.equal(down.action, undefined);
+    assert.equal(up.action, undefined);
+    assert.equal(presses, 0);
+    assert.equal(renderer.getFocusedId(), null);
   });
 
   test("focusZone grid navigation moves by columns deterministically", () => {
