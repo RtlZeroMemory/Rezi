@@ -9,10 +9,7 @@ import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
-import {
-  runBlessedLineScenario,
-  runReziLineScenario,
-} from "./terminalLineBench.js";
+import { runBlessedLineScenario, runReziLineScenario } from "./terminalLineBench.js";
 import { buildTerminalMemorySoakLines } from "./terminalWorkloads.js";
 
 export const terminalMemorySoakScenario: Scenario = {

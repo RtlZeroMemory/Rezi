@@ -2,10 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey =
-  | "minimal"
-  | "cli-tool"
-  | "starship";
+export type TemplateKey = "minimal" | "cli-tool" | "starship";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -45,8 +42,7 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "starship",
     label: "Starship Command Console",
-    description:
-      "Polished multi-deck showcase for routing, animation, charts, forms, and overlays",
+    description: "Polished multi-deck showcase for routing, animation, charts, forms, and overlays",
     safetyTag: "safe-default",
     safetyNote:
       "Feature-rich showcase template with moderate CPU usage from animation hooks and live telemetry.",

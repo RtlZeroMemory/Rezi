@@ -26,11 +26,7 @@ import type {
   Scenario,
   ScenarioConfig,
 } from "../types.js";
-import {
-  buildBlessedTree,
-  buildReziTree,
-  buildTermkitTree,
-} from "./treeBuilders.js";
+import { buildBlessedTree, buildReziTree, buildTermkitTree } from "./treeBuilders.js";
 
 const TREE_SIZE = 50;
 

@@ -14,11 +14,7 @@ import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
-import {
-  buildBlessedTree,
-  buildReziTree,
-  buildTermkitTree,
-} from "./treeBuilders.js";
+import { buildBlessedTree, buildReziTree, buildTermkitTree } from "./treeBuilders.js";
 
 async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
   const core = await import("@rezi-ui/core");

@@ -150,7 +150,10 @@ function splitStyledSegmentsOnNewlines(
     for (let index = 0; index < parts.length; index++) {
       const part = parts[index] ?? "";
       if (part.length > 0) {
-        appendStyledSegment(lines[lines.length - 1] ?? (lines[0] = []), part, segment.style);
+        const currentLine = lines[lines.length - 1];
+        if (currentLine) {
+          appendStyledSegment(currentLine, part, segment.style);
+        }
       }
       if (index < parts.length - 1) {
         lines.push([]);
@@ -174,7 +177,8 @@ function wrapAnsiStyledLines(
   const lines: WrappedStyledLine[] = [];
   for (const paragraph of paragraphSegments) {
     const paragraphText = paragraph.map((segment) => segment.text).join("");
-    const wrappedLines = paragraphText.length === 0 ? [""] : [...wrapTextToLines(paragraphText, maxWidth)];
+    const wrappedLines =
+      paragraphText.length === 0 ? [""] : [...wrapTextToLines(paragraphText, maxWidth)];
     let remainingSegments = cloneStyledSegments(paragraph);
     for (const wrappedLine of wrappedLines) {
       const { taken, remaining } = sliceStyledSegmentsByTextLength(
@@ -373,10 +377,7 @@ function applyAnsiSgrCodes(codes: readonly number[], style: MutableAnsiSgrStyle)
     }
   }
 }
-function parseAnsiStyledText(
-  text: string,
-  baseStyle: ResolvedTextStyle,
-): ParsedAnsiTransformText {
+function parseAnsiStyledText(text: string, baseStyle: ResolvedTextStyle): ParsedAnsiTransformText {
   if (text.length === 0 || text.indexOf("\u001b[") === -1) {
     return {
       segments: text.length === 0 ? [] : [{ text, style: baseStyle }],
@@ -670,7 +671,9 @@ export function renderTextWidgets(
       if (wrap && rect.h > 1) {
         const parsedText = parseAnsiStyledText(text, style);
         const wrappedAnsiLines =
-          parsedText.hasAnsi === true ? wrapAnsiStyledLines(parsedText.segments, overflowW) : undefined;
+          parsedText.hasAnsi === true
+            ? wrapAnsiStyledLines(parsedText.segments, overflowW)
+            : undefined;
         const lines =
           wrappedAnsiLines?.map((line) => line.text) ??
           wrapTextToLines(parsedText.hasAnsi === true ? parsedText.visibleText : text, overflowW);

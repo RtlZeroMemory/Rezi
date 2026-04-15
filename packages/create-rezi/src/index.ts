@@ -87,9 +87,7 @@ function printHelp(): void {
   stdout.write("  npm create rezi my-app\n");
   stdout.write("  bun create rezi my-app\n\n");
   stdout.write("Options:\n");
-  stdout.write(
-    "  --template, -t <name>       minimal | cli-tool | starship\n",
-  );
+  stdout.write("  --template, -t <name>       minimal | cli-tool | starship\n");
   stdout.write("  --no-install                Skip dependency install\n");
   stdout.write("  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n");
   stdout.write("  --list-templates            Show templates and highlights\n");

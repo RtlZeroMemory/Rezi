@@ -60,9 +60,7 @@
       }
     },
     {
-      "include": [
-        "packages/core/src/drawlist/writers.gen.ts"
-      ],
+      "include": ["packages/core/src/drawlist/writers.gen.ts"],
       "linter": {
         "rules": {
           "correctness": {

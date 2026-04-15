@@ -318,13 +318,7 @@ export function toMarkdown(run: BenchRun): string {
     '> Includes ratio confidence bands from each framework mean CI. Rows marked "(inconclusive)" have CIs overlapping parity.\n',
   );
 
-  const allFws: Framework[] = [
-    "opentui",
-    "opentui-core",
-    "terminal-kit",
-    "blessed",
-    "ratatui",
-  ];
+  const allFws: Framework[] = ["opentui", "opentui-core", "terminal-kit", "blessed", "ratatui"];
   const presentFws = allFws.filter((fw) =>
     [...groups.values()].some((items) => items.some((r) => r.framework === fw)),
   );

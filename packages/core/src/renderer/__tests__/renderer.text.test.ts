@@ -354,7 +354,10 @@ describe("renderer text - wrap newline handling", () => {
         { x: 0, y: 2, text: "EFGH" },
       ],
     );
-    assert.equal(frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")), false);
+    assert.equal(
+      frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")),
+      false,
+    );
   });
 });
 
@@ -364,7 +367,10 @@ describe("renderer text - ANSI styling", () => {
       renderBytes(textVNode("\u001b[31mA\u001b[32mB\u001b[0m", {}), { cols: 20, rows: 1 }),
     );
 
-    assert.equal(frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")), false);
+    assert.equal(
+      frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")),
+      false,
+    );
     const run = expectSingleDrawTextRun(frame);
     const blob = expectBlob(frame, run.blobIndex);
     assert.equal(blob.segments.length, 2);
