@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, win32 } from "node:path";
 import { cwd, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import * as crossSpawn from "cross-spawn";
@@ -184,7 +184,7 @@ export function resolveInstallInvocation(
       return { command: nodeExecPath, args: [npmExecPath, "install"] };
     }
     if (platform === "win32") {
-      return { command: join(dirname(nodeExecPath), "npm.cmd"), args: ["install"] };
+      return { command: win32.join(win32.dirname(nodeExecPath), "npm.cmd"), args: ["install"] };
     }
   }
 
