@@ -149,6 +149,15 @@ function shouldStripInstallEnvKey(key: string): boolean {
   );
 }
 
+function isNpmExecPath(execPath: string): boolean {
+  const normalized = execPath.replaceAll("\\", "/").toLowerCase();
+  return (
+    normalized.endsWith("/npm-cli.js") ||
+    normalized.endsWith("/npm-cli.mjs") ||
+    /(^|\/)npm(\.cmd|\.exe)?$/.test(normalized)
+  );
+}
+
 export function createInstallEnv(
   parentEnv: Readonly<Record<string, string | undefined>> = process.env,
 ): NodeJS.ProcessEnv {
@@ -180,7 +189,7 @@ export function resolveInstallInvocation(
   if (packageManager === "npm") {
     // biome-ignore lint/complexity/useLiteralKeys: process.env-compatible maps use index signatures in TS.
     const npmExecPath = env["npm_execpath"];
-    if (npmExecPath) {
+    if (npmExecPath && isNpmExecPath(npmExecPath)) {
       return { command: nodeExecPath, args: [npmExecPath, "install"] };
     }
     if (platform === "win32") {

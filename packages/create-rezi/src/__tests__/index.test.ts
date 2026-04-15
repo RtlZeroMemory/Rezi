@@ -74,6 +74,21 @@ test("resolveInstallInvocation prefers npm_execpath and falls back to node-adjac
 
   assert.deepEqual(
     resolveInstallInvocation("npm", {
+      env: {
+        npm_execpath:
+          "C:\\Users\\example\\AppData\\Roaming\\npm\\node_modules\\pnpm\\bin\\pnpm.cjs",
+      },
+      platform: "win32",
+      nodeExecPath: "C:\\Program Files\\nodejs\\node.exe",
+    }),
+    {
+      command: "C:\\Program Files\\nodejs\\npm.cmd",
+      args: ["install"],
+    },
+  );
+
+  assert.deepEqual(
+    resolveInstallInvocation("npm", {
       env: {},
       platform: "win32",
       nodeExecPath: "C:\\Program Files\\nodejs\\node.exe",
