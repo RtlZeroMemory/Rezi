@@ -8,10 +8,7 @@ function keyDown(key: number): ZrevEvent {
   return { kind: "key", timeMs: 0, key, mods: 0, action: "down" };
 }
 
-function createSelect(
-  value: string,
-  onChange?: (next: string) => void,
-): SelectProps {
+function createSelect(value: string, onChange?: (next: string) => void): SelectProps {
   return {
     id: "theme",
     value,
@@ -24,10 +21,7 @@ function createSelect(
   };
 }
 
-function route(
-  event: ZrevEvent,
-  props: SelectProps,
-): ReturnType<typeof routeSelectKeyDown> {
+function route(event: ZrevEvent, props: SelectProps): ReturnType<typeof routeSelectKeyDown> {
   return routeSelectKeyDown(event, {
     focusedId: props.id,
     selectById: new Map([[props.id, props]]),
