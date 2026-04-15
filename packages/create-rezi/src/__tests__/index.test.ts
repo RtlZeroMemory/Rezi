@@ -27,16 +27,16 @@ test("createInstallEnv strips parent npm lifecycle metadata but preserves useful
 
   const childEnv = createInstallEnv(env);
 
-  assert.equal(childEnv.PATH, env.PATH);
-  assert.equal(childEnv.HOME, env.HOME);
-  assert.equal(childEnv.npm_config_registry, env.npm_config_registry);
-  assert.equal(childEnv.npm_config_user_agent, env.npm_config_user_agent);
-  assert.equal(childEnv.INIT_CWD, undefined);
-  assert.equal(childEnv.npm_command, undefined);
-  assert.equal(childEnv.npm_execpath, undefined);
-  assert.equal(childEnv.npm_lifecycle_event, undefined);
-  assert.equal(childEnv.npm_lifecycle_script, undefined);
-  assert.equal(childEnv.npm_config_local_prefix, undefined);
-  assert.equal(childEnv.npm_package_name, undefined);
-  assert.equal(childEnv.npm_package_json, undefined);
+  assert.equal(childEnv["PATH"], env["PATH"]);
+  assert.equal(childEnv["HOME"], env["HOME"]);
+  assert.equal(childEnv["npm_config_registry"], env["npm_config_registry"]);
+  assert.equal(childEnv["npm_config_user_agent"], env["npm_config_user_agent"]);
+  assert.equal(childEnv["INIT_CWD"], undefined);
+  assert.equal(childEnv["npm_command"], undefined);
+  assert.equal(childEnv["npm_execpath"], undefined);
+  assert.equal(childEnv["npm_lifecycle_event"], undefined);
+  assert.equal(childEnv["npm_lifecycle_script"], undefined);
+  assert.equal(childEnv["npm_config_local_prefix"], undefined);
+  assert.equal(childEnv["npm_package_name"], undefined);
+  assert.equal(childEnv["npm_package_json"], undefined);
 });

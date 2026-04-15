@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.66] - 2026-04-15
+
+### CI / Tooling
+
+- **release**: Follow-up release tag after the failed `v0.1.0-alpha.65` publish gate; fixed strict TypeScript index-signature access in the `create-rezi` Windows install regression test so the release preflight can complete.
+
 ## [0.1.0-alpha.65] - 2026-04-15
 
 ### CI / Tooling
