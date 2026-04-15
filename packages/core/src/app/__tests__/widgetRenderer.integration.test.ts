@@ -1627,7 +1627,6 @@ describe("WidgetRenderer integration battery", () => {
     res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
     assert.ok(res.ok);
   });
-  });
 
   test("focusZone grid navigation moves by columns deterministically", () => {
     const backend = createNoopBackend();
