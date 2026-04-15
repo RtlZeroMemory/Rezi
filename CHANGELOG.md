@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Documentation
+
+- Removed the compatibility docs from the public docs navigation and landing-page positioning.
+- Tightened the README, template guide, example map, and benchmark tone around the focused public template set (`minimal`, `cli-tool`, `starship`).
+
+### GitHub / Hygiene
+
+- Fixed the security advisory contact link and removed the duplicate feature request issue template.
+
 ## [0.1.0-alpha.63] - 2026-04-14
 
 ### Tests
@@ -296,47 +305,47 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Features
 
-- **bench/ink-compat**: Added a fairness-focused Ink vs Ink-compat benchmark harness with shared app scenarios, PTY replay, CPU profiling support, and final-screen equivalence verification.
+- **bench/compat**: Added a fairness-focused compatibility benchmark harness with shared app scenarios, PTY replay, CPU profiling support, and final-screen equivalence verification.
 - **bench/validity**: Added benchmark validity documentation and reporting workflow for reproducible comparisons.
 
 ### Performance
 
 - **core/layout-renderer**: Reduced hot-path allocation churn in layout and render paths.
-- **ink-compat**: Reduced dashboard-grid tail latency and renderer overhead across translation and runtime hot paths.
+- **compat**: Reduced dashboard-grid tail latency and renderer overhead across translation and runtime hot paths.
 
 ### Bug Fixes
 
-- **ink-compat**: Fixed soft-wrap whitespace behavior and hardened ANSI transform rendering parity.
+- **compat**: Fixed soft-wrap whitespace behavior and hardened ANSI transform rendering parity.
 - **core/types**: Fixed strict index-signature access handling for text prop hashing.
 
 ### Documentation
 
-- **ink-compat/docs**: Expanded migration, architecture, and debugging documentation for Ink-compat.
-- **benchmarks**: Updated benchmark reports with latest 8-framework results and moved detailed Ink-compat bench command block into architecture docs.
+- **compat/docs**: Expanded migration, architecture, and debugging documentation for compatibility work.
+- **benchmarks**: Updated benchmark reports with latest 8-framework results and moved detailed compatibility bench command block into architecture docs.
 
 ### Merged Pull Requests
 
 - [#228](https://github.com/RtlZeroMemory/Rezi/pull/228) refactor(core): reduce layout/render hot-path allocations
 - [#229](https://github.com/RtlZeroMemory/Rezi/pull/229) benchmarks: update results to 2026-02-28 full run (all 8 frameworks)
-- [#230](https://github.com/RtlZeroMemory/Rezi/pull/230) perf(ink-compat): finalize benchmark harness, renderer fixes, and docs
-- [#231](https://github.com/RtlZeroMemory/Rezi/pull/231) docs(ink-compat): move benchmark block out of root README
+- [#230](https://github.com/RtlZeroMemory/Rezi/pull/230) perf(compat): finalize benchmark harness, renderer fixes, and docs
+- [#231](https://github.com/RtlZeroMemory/Rezi/pull/231) docs(compat): move benchmark block out of root README
 
 ## [0.1.0-alpha.48] - 2026-02-27
 
 ### Features
 
-- **ink-compat**: Improved Ink compatibility fidelity, diagnostics, and documentation coverage.
+- **compat**: Improved compatibility fidelity, diagnostics, and documentation coverage.
 - **drawlist/backend**: Added builder `buildInto(dst)` and backend zero-copy `beginFrame` SAB path.
 - **renderer/perf**: Shipped packed-style pipeline, frame text arena, retained sub-display-lists, BLIT_RECT plumbing, and logs scrolling optimizations.
 - **runtime/perf**: Added layout stability signatures and content-keyed render packets with additional hot-path optimizations.
 
 ### Bug Fixes
 
-- **release/publish**: Fixed npm publish flow for `@rezi-ui/ink-compat` and shim packages.
+- **release/publish**: Fixed npm publish flow for the compatibility and shim packages.
 - **native**: Fixed MSVC `ZR_ARRAYLEN` compatibility and bumped vendored Zireael revisions.
 - **node/backend**: Prevented reclaiming READY SAB slots during `beginFrame`.
 - **starship/template**: Fixed rendering regressions and added PTY debugging runbook coverage.
-- **ink-compat**: Fixed translation/layout hot paths and regression fallout from the optimization pass.
+- **compat**: Fixed translation/layout hot paths and regression fallout from the optimization pass.
 
 ### Developer Experience
 
@@ -349,12 +358,12 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - [#201](https://github.com/RtlZeroMemory/Rezi/pull/201) docs(dev): add Rezi code standards and enforcement references
 - [#202](https://github.com/RtlZeroMemory/Rezi/pull/202) chore(release): bump Zireael vendor and prepare alpha.40
-- [#203](https://github.com/RtlZeroMemory/Rezi/pull/203) feat(ink-compat): improve fidelity, diagnostics, and docs
-- [#204](https://github.com/RtlZeroMemory/Rezi/pull/204) fix(release): publish ink-compat and shim packages
+- [#203](https://github.com/RtlZeroMemory/Rezi/pull/203) feat(compat): improve fidelity, diagnostics, and docs
+- [#204](https://github.com/RtlZeroMemory/Rezi/pull/204) fix(release): publish compatibility and shim packages
 - [#205](https://github.com/RtlZeroMemory/Rezi/pull/205) fix(native): make ZR_ARRAYLEN MSVC-compatible
-- [#206](https://github.com/RtlZeroMemory/Rezi/pull/206) fix(release): publish ink-compat by path
-- [#207](https://github.com/RtlZeroMemory/Rezi/pull/207) docs: add comprehensive Ink-compat guide and README feature callout
-- [#208](https://github.com/RtlZeroMemory/Rezi/pull/208) chore(release): publish scoped ink shim packages
+- [#206](https://github.com/RtlZeroMemory/Rezi/pull/206) fix(release): publish compatibility package by path
+- [#207](https://github.com/RtlZeroMemory/Rezi/pull/207) docs: add comprehensive compatibility guide and README feature callout
+- [#208](https://github.com/RtlZeroMemory/Rezi/pull/208) chore(release): publish scoped shim packages
 - [#210](https://github.com/RtlZeroMemory/Rezi/pull/210) fix(native): bump Zireael vendor to v1.3.9
 - [#211](https://github.com/RtlZeroMemory/Rezi/pull/211) refactor(renderer): replace WeakMap theme propagation with stack
 - [#212](https://github.com/RtlZeroMemory/Rezi/pull/212) feat(core): add drawlist builder buildInto(dst) for v2/v3
@@ -370,7 +379,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - [#223](https://github.com/RtlZeroMemory/Rezi/pull/223) Fix post-refactor regressions and bump native vendor to Zireael #103
 - [#225](https://github.com/RtlZeroMemory/Rezi/pull/225) Fix starship rendering regressions with clean diff and PTY debug runbook
 - [#226](https://github.com/RtlZeroMemory/Rezi/pull/226) perf: layout stability signatures, content-keyed packets, hot-path fixes
-- [#227](https://github.com/RtlZeroMemory/Rezi/pull/227) fix(ink-compat): optimize translation and layout hot paths
+- [#227](https://github.com/RtlZeroMemory/Rezi/pull/227) fix(compat): optimize translation and layout hot paths
 
 ## [0.1.0-alpha.40] - 2026-02-25
 
@@ -469,7 +478,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
   - Strict apples-to-apples scenarios: `terminal-strict-ui`, `terminal-strict-ui-navigation`
   - Full-app composition scenarios: `terminal-full-ui`, `terminal-full-ui-navigation`
   - CI perf regression guardrails via `scripts/run-bench-ci.mjs`
-- Full 8-framework benchmark results (Rezi, Ink, OpenTUI React/Core, Bubble Tea, terminal-kit, blessed, Ratatui) across 22 scenarios
+- Full benchmark results across 22 scenarios
 - Benchmark documentation rewrite (`BENCHMARKS.md`, `README.md`, `docs/benchmarks.md`)
 
 ### Fixed
@@ -510,7 +519,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - `FileTreeExplorer` mouse click-to-node routing: left click selects a node (`onSelect`), double-click activates it (`onActivate`), following the same press/release model as `Table`
 
 - `@rezi-ui/jsx` — native JSX runtime for Rezi widgets (no React required)
-- `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
+- `@rezi-ui/bench` — benchmark suite for Rezi and terminal UI runtimes
 - Benchmark results and performance documentation
 - Hot State-Preserving Reload (HSR): `App.replaceView(...)`/`App.replaceRoutes(...)` in core and `createHotStateReload(...)` in `@rezi-ui/node` for in-process widget view and route-table hot swapping during development
 - `@rezi-ui/node` `createNodeApp(...)` now supports first-class `hotReload` wiring (auto lifecycle start/stop + `app.hotReload` controller) and route passthrough (`routes`, `initialRoute`)
@@ -525,7 +534,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Keybinding metadata/introspection: optional `description` in binding definitions, `app.getBindings(mode?)`, `app.pendingChord`, and `ui.keybindingHelp(...)` for auto-generated shortcut overlays
 - Declarative animation hooks: `useTransition`, `useSpring`, `useSequence`, and `useStagger`
 - `ui.box` transition API with property-scoped animation (`position`, `size`, `opacity`) plus surface `opacity`
-- `create-rezi` `animation-lab` template with declarative animation hooks, responsive reactor canvas scene, and scaffolded tests/docs
+- `create-rezi` animation template with declarative animation hooks, responsive reactor canvas scene, and scaffolded tests/docs
 - `ui.virtualList(...)` estimate mode via `estimateItemHeight` with measured-height correction/cache and optional `measureItemHeight` override for variable-height rows
 
 ### Changed
@@ -539,7 +548,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Fixed
 
-- Benchmark harness: ZREV resize events, frame synchronization, Ink output deduplication
+- Benchmark harness: ZREV resize events, frame synchronization, and output deduplication
 - Benchmark accuracy: framesProduced/bytesProduced no longer inflated by initial render + warmup in async scenarios
 - Memory-profile: sampling off-by-one (sampled at iteration 0/50/100 instead of 49/99/149)
 - analyzeMemory() slope regression x-axis now uses iteration count instead of sample index
@@ -580,7 +589,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Added
 
-- `create-rezi` now ships a dedicated `stress-test` benchmark template with visual stress lanes and measured runtime diagnostics (`#101`).
+- `create-rezi` now ships a dedicated benchmark template with visual stress lanes and measured runtime diagnostics (`#101`).
 - `@rezi-ui/bench` now includes OpenTUI framework coverage and expanded terminal benchmark scenarios (`#99`).
 
 ### Changed
@@ -596,7 +605,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - [#98](https://github.com/RtlZeroMemory/Rezi/pull/98) feat(jsx): complete core API parity and docs coverage
 - [#99](https://github.com/RtlZeroMemory/Rezi/pull/99) bench: revamp terminal benchmarks, add OpenTUI coverage, refresh README data
 - [#100](https://github.com/RtlZeroMemory/Rezi/pull/100) docs(readme): add ratatui native baseline table
-- [#101](https://github.com/RtlZeroMemory/Rezi/pull/101) feat(create-rezi): add visual benchmark stress-test template
+- [#101](https://github.com/RtlZeroMemory/Rezi/pull/101) feat(create-rezi): add visual benchmark template
 - [#102](https://github.com/RtlZeroMemory/Rezi/pull/102) docs(readme): condense benchmark table to representative scenarios
 
 ## [0.1.0-alpha.16] - 2026-02-19

@@ -52,7 +52,7 @@ app.setTheme(lightTheme);
 
 Built-in semantic themes automatically enable recipe styling for core widgets.
 
-- You do not need `dsVariant` or `dsTone` for baseline polished styling.
+- You do not need `dsVariant` or `dsTone` for the default recipe-based styling path.
 - Manual widget styles merge on top of recipe output.
 - `app.setTheme(...)` and scoped overrides use the same semantic token model.
 

@@ -1,5 +1,5 @@
 site_name: Rezi
-site_description: A high-performance, code-first terminal UI framework for Node.js built on the Zireael engine.
+site_description: A deterministic, native-backed terminal UI framework for Node.js and Bun built on the Zireael engine.
 site_url: https://rezitui.dev/
 repo_url: https://github.com/RtlZeroMemory/Rezi
 repo_name: RtlZeroMemory/Rezi
@@ -106,11 +106,6 @@ nav:
       - JSX: getting-started/jsx.md
       - Examples: getting-started/examples.md
       - FAQ: getting-started/faq.md
-  - Migration:
-      - Ink to Ink-Compat: migration/ink-to-ink-compat.md
-      - Ink to Rezi: migration/ink-to-rezi.md
-      - Beautiful Defaults: migration/beautiful-defaults.md
-      - Manual Math to Constraints: guide/migration-from-manual-layout-math.md
   - Guides:
       - Index: guide/index.md
       - Concepts: guide/concepts.md
@@ -123,6 +118,7 @@ nav:
       - Layout: guide/layout.md
       - Layout Decision Tree: guide/layout-decision-tree.md
       - Constraints: guide/constraints.md
+      - Constraints Instead of Manual Math: guide/migration-from-manual-layout-math.md
       - Constraint Recipes: guide/constraint-recipes.md
       - Constraint Demos: guide/constraint-demos.md
       - Styling with Constraints: guide/styling-with-constraints.md
@@ -224,6 +220,7 @@ nav:
           - Empty: widgets/empty.md
   - Styling:
       - Overview: styling/index.md
+      - Design System Defaults: migration/beautiful-defaults.md
       - Design System: design-system.md
       - Style Props: styling/style-props.md
       - Theme: styling/theme.md
@@ -239,7 +236,6 @@ nav:
   - Architecture:
       - Overview: architecture/index.md
       - Terminal I/O Contract: terminal-io-contract.md
-      - Ink Compat Layer: architecture/ink-compat.md
       - Backend:
           - Node Backend: backend/node.md
           - Worker Model: backend/worker-model.md
@@ -271,7 +267,6 @@ nav:
       - Testing: dev/testing.md
       - Live PTY Debugging: dev/live-pty-debugging.md
       - Code Standards: dev/code-standards.md
-      - Ink Compat Debugging: dev/ink-compat-debugging.md
       - Perf Regressions: dev/perf-regressions.md
       - Repro Replay: dev/repro-replay.md
       - Releasing: dev/releasing.md

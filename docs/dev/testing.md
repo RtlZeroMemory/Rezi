@@ -241,7 +241,7 @@ npm run hsr:record:router
 
 `hsr:record:*` uses manual capture by default so you can type/edit freely during recording.
 
-Use scripted mode for deterministic multi-scene showcase captures:
+Use scripted mode for deterministic multi-scene captures:
 
 ```bash
 npm run hsr:record:widget:auto

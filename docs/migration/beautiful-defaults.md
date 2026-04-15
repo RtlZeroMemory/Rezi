@@ -1,10 +1,8 @@
-# Migration: Beautiful Defaults (Design System by Default)
+# Design System Defaults
 
-Rezi’s core widgets are now wired to the design system so applications look professional without manual styling.
+This page documents the current default recipe behavior for core widgets and how to override it.
 
-This page documents what changed and how to control it.
-
-## What changed
+## Default behavior
 
 When the active theme provides semantic color tokens (`bg.base`, `fg.primary`, etc.), these widgets use recipes by default:
 
@@ -58,8 +56,6 @@ New layout helpers reduce boilerplate:
 Manual styling props do **not** disable recipes.
 
 When semantic color tokens are available, recipe styles are always applied, and manual props like `style`, `pressedStyle`, `px`, and `trackStyle` are merged on top to override specific attributes.
-
-> Breaking (alpha): older builds treated some manual `style` props as an opt-out from recipe styling. This migration removes that opt-out to keep defaults consistent and avoid hidden behavior.
 
 ## Height constraints for framed controls
 

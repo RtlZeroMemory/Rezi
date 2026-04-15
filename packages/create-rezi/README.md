@@ -1,6 +1,6 @@
 # create-rezi
 
-Scaffold a new Rezi terminal UI app.
+Scaffold a Rezi terminal UI app.
 
 ## Usage
 
@@ -23,7 +23,7 @@ Available templates:
   - Aliases: `mini`, `basic`, `utility`
 - `cli-tool` - Multi-screen CLI starter with route-based screens
   - Aliases: `cli`, `tool`, `multiscreen`
-- `starship` - Polished advanced showcase with routed decks, charts, forms, and overlays
+- `starship` - Advanced console template with routed decks, charts, forms, and overlays
   - Aliases: `ship`, `bridge`, `command`
 
 ```bash

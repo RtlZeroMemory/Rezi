@@ -9,7 +9,7 @@ Build your first Rezi terminal application in minutes.
 ```bash
 npm create rezi my-tui-app
 cd my-tui-app
-npm start
+npm run start
 ```
 
 With Bun:
@@ -17,19 +17,18 @@ With Bun:
 ```bash
 bun create rezi my-tui-app
 cd my-tui-app
-bun start
+bun run start
 ```
 
-Select a template when prompted (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, or `starship`), or pass `--template` to choose directly:
+Select a template when prompted (`minimal`, `cli-tool`, or `starship`), or pass `--template` to choose directly:
 
 ```bash
-npm create rezi my-tui-app -- --template dashboard
-npm create rezi my-tui-app -- --template animation-lab
-npm create rezi my-tui-app -- --template starship
 npm create rezi my-tui-app -- --template minimal
+npm create rezi my-tui-app -- --template cli-tool
+npm create rezi my-tui-app -- --template starship
 ```
 
-The templates demonstrate the recommended project structure and patterns. Start with `minimal` to learn the basics, `dashboard` for operations workflows, `animation-lab` for declarative motion patterns, or `starship` for an end-to-end command console showcase.
+The public templates demonstrate the recommended project structure and patterns. Start with `minimal` to learn the basics, `cli-tool` for routed workflows, or `starship` for a larger command console template.
 
 ### Option 2: Manual setup
 

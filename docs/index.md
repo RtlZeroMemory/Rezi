@@ -1,97 +1,25 @@
 # Rezi
 
-Rezi is a **code-first terminal UI framework** for Node.js and Bun. Build interactive terminal applications with a declarative widget API, automatic focus management, and native-backed rendering through the [Zireael](https://github.com/RtlZeroMemory/Zireael) C engine.
+Rezi is a code-first terminal UI framework for Node.js and Bun. It uses a declarative widget API, deterministic input routing, and native-backed rendering through the [Zireael](https://github.com/RtlZeroMemory/Zireael) C engine.
 
-```typescript
-import { ui } from "@rezi-ui/core";
-import { createNodeApp } from "@rezi-ui/node";
+> **Status: pre-alpha**. Rezi is under active development. Public APIs, ABI details, and behavior may change between releases. It is not yet recommended for production workloads.
 
-const app = createNodeApp<{ count: number }>({
-  initialState: { count: 0 },
-});
+## Focus
 
-app.view((state) =>
-  ui.page({
-    p: 1,
-    gap: 1,
-    header: ui.header({ title: "Counter", subtitle: "Beautiful defaults" }),
-    body: ui.panel("Count", [
-      ui.row({ gap: 1, items: "center" }, [
-        ui.text(String(state.count), { variant: "heading" }),
-        ui.spacer({ flex: 1 }),
-        ui.button({
-          id: "inc",
-          label: "+1",
-          intent: "primary",
-          onPress: () => app.update((s) => ({ count: s.count + 1 })),
-        }),
-      ]),
-    ]),
-  })
-);
-
-app.keys({ q: () => app.stop() });
-await app.start();
-```
-
-## Why Rezi?
-
-**Declarative and Type-Safe**
-: Define your UI as a function of state. Full TypeScript support with strict typing for props, state, and events.
-
-**Rich Widget Library**
-: 50+ built-in widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
-
-**Native Performance**
-: Powered by the Zireael C engine with a binary protocol boundary. No virtual DOM diffing overhead.
-
-**Focus Management**
-: Automatic keyboard navigation with focus zones, focus traps, and modal stacking.
-
-**Mouse Support**
-: Click to focus and activate widgets, scroll wheel for lists and editors, drag to resize split panes, click backdrops to close modals. Detected automatically — no configuration needed.
-
-**Theming**
-: Six built-in themes (dark, light, dimmed, high-contrast, nord, dracula) with semantic color tokens.
-
-**Declarative Animation**
-: Built-in animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) plus container transition props on `ui.box(...)`.
-
-**Keybindings**
-: First-class support for modal keybindings with chord sequences (Vim-style `g g`, Emacs-style `C-x C-s`).
-
-**JSX Support**
-: Write widget trees using JSX syntax with `@rezi-ui/jsx` — no React required. [Getting started →](getting-started/jsx.md)
-
-**Performance**
-: See [benchmarks →](benchmarks.md) for methodology, limitations, and the latest committed results.
+- `ui.*` widget factories as the canonical API
+- deterministic rendering and event routing
+- native-backed layout and framebuffer diffing
+- explicit focus, forms, routing, and theme control
+- optional JSX support through `@rezi-ui/jsx`
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    App["Application Code"] --> Core["@rezi-ui/core"]
-    JSX["@rezi-ui/jsx"] -.-> Core
-    Core --> Node["@rezi-ui/node"]
-    Node --> Native["@rezi-ui/native"]
-    Native --> Engine["Zireael C Engine"]
-
-    subgraph Runtime-Agnostic
-        Core
-    end
-
-    subgraph Node.js/Bun Runtime
-        Node
-        Native
-    end
-```
-
 | Layer | Purpose |
-|-------|---------|
-| **@rezi-ui/core** | Widgets, layout, themes, forms, keybindings. No Node.js APIs. |
-| **@rezi-ui/node** | Node.js/Bun backend with worker and inline execution modes. |
-| **@rezi-ui/native** | N-API addon (napi-rs) binding to the Zireael C rendering engine. |
-| **@rezi-ui/jsx** | Optional JSX runtime for widget trees. |
+|---|---|
+| `@rezi-ui/core` | Runtime-agnostic widget API, layout, routing, focus, forms, themes, testing hooks |
+| `@rezi-ui/node` | Node.js/Bun backend, terminal I/O, scheduling, native engine integration |
+| `@rezi-ui/native` | N-API binding to the Zireael engine |
+| `@rezi-ui/jsx` | Optional JSX runtime over the core widget API |
 
 ## Getting Started
 
@@ -101,7 +29,7 @@ flowchart TB
 
     ---
 
-    Install Rezi via npm and set up your first project.
+    Install Rezi and set up your first project.
 
     [:octicons-arrow-right-24: Installation](getting-started/install.md)
 
@@ -117,25 +45,52 @@ flowchart TB
 
     ---
 
-    Browse the complete widget catalog.
+    Browse the widget catalog and stability tiers.
 
     [:octicons-arrow-right-24: Widget Catalog](widgets/index.md)
 
--   :material-palette:{ .lg .middle } **Styling**
+-   :material-movie-open:{ .lg .middle } **Templates**
 
     ---
 
-    Themes, colors, and visual customization.
+    Review the public starter set: `minimal`, `cli-tool`, and `starship`.
 
-    [:octicons-arrow-right-24: Styling Guide](styling/index.md)
+    [:octicons-arrow-right-24: Create Rezi](getting-started/create-rezi.md)
+
+-   :material-flask-outline:{ .lg .middle } **Examples**
+
+    ---
+
+    Review the curated public examples and the reference app split.
+
+    [:octicons-arrow-right-24: Examples](getting-started/examples.md)
+
+-   :material-chart-line:{ .lg .middle } **Benchmarks**
+
+    ---
+
+    Review the benchmark methodology and results.
+
+    [:octicons-arrow-right-24: Benchmarks](benchmarks.md)
 
 </div>
+
+## Public Templates
+
+- `minimal` - single-screen utility starter
+- `cli-tool` - routed multi-screen workflow starter
+- `starship` - advanced console starter with tabs, charts, overlays, and broad widget coverage
+
+## Example Surfaces
+
+- Curated public examples: `examples/hello-counter`, `examples/raw-draw-demo`, `examples/gallery`
+- Internal/reference example: `examples/regression-dashboard`
 
 ## Core Concepts
 
 ### State-Driven Rendering
 
-Rezi applications are state-driven. You define a `view` function that returns a widget tree based on your application state:
+Rezi applications are state-driven. You define a `view` function that returns a widget tree based on application state:
 
 ```typescript
 type State = { items: string[]; selected: number };
@@ -158,83 +113,3 @@ Update state with `app.update()`. Updates are batched and coalesced for efficien
 ```typescript
 app.update((prev) => ({ ...prev, selected: prev.selected + 1 }));
 ```
-
-### Widget Composition
-
-Widgets compose naturally. Container widgets like `column`, `row`, and `box` accept children:
-
-```typescript
-ui.box({ title: "User Form", p: 1 }, [
-  ui.field({ label: "Name", required: true, children:
-    ui.input({ id: "name", value: state.name })
-  }),
-  ui.row({ gap: 2 }, [
-    ui.button({ id: "submit", label: "Submit", intent: "primary" }),
-    ui.button({ id: "cancel", label: "Cancel" }),
-  ]),
-])
-```
-
-### Focus and Navigation
-
-Interactive widgets (buttons, inputs) automatically participate in focus navigation. Use Tab/Shift+Tab to move between focusable elements, or click any focusable widget with the mouse:
-
-```typescript
-ui.column({}, [
-  ui.button({ id: "first", label: "First" }),   // Tab stop 1
-  ui.button({ id: "second", label: "Second" }), // Tab stop 2
-  ui.input({ id: "name", value: "" }),          // Tab stop 3
-])
-```
-
-## Widget Categories
-
-### Primitives
-Layout building blocks: `text`, `box`, `row`, `column`, `spacer`, `divider`
-
-### Form Inputs
-Interactive controls: `button`, `input`, `checkbox`, `radioGroup`, `select`, `field`
-
-### Navigation
-Routing and wayfinding: `tabs`, `accordion`, `breadcrumb`, `link`, `pagination`
-
-### Data Display
-Data presentation: `table`, `virtualList`, `tree`, `richText`, `badge`, `tag`, `status`
-
-### Overlays
-Modal UIs: `modal`, `dropdown`, `layer`, `layers`, `toast`, `focusZone`, `focusTrap`
-
-### Layout Components
-Complex layouts: `splitPane`, `panelGroup`, `resizablePanel`
-
-### Advanced Widgets
-Rich functionality: `commandPalette`, `codeEditor`, `diffViewer`, `logsConsole`, `filePicker`
-
-### Charts
-Data visualization: `gauge`, `progress`, `sparkline`, `barChart`, `miniChart`
-
-### Graphics Components
-Graphics rendering: `canvas`, `image`, `lineChart`, `scatter`, `heatmap`
-
-### Feedback
-User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
-
-## Learn More
-
-- [Concepts](guide/concepts.md) - Understanding Rezi's architecture
-- [Ink to Ink-Compat Migration](migration/ink-to-ink-compat.md) - Port existing Ink apps with minimal code churn
-- [Beautiful Defaults migration](migration/beautiful-defaults.md) - Design system styling defaults and manual overrides
-- [Ink to Rezi Migration](migration/ink-to-rezi.md) - Mental model mapping and migration recipes
-- [Lifecycle & Updates](guide/lifecycle-and-updates.md) - State management patterns
-- [Routing](guide/routing.md) - Page-level navigation and screen history
-- [Layout](guide/layout.md) - Spacing, alignment, and constraints
-- [Input & Focus](guide/input-and-focus.md) - Keyboard navigation and focus management
-- [Mouse Support](guide/mouse-support.md) - Click, scroll, and drag interactions
-- [Animation](guide/animation.md) - Declarative motion hooks and box transitions
-- [Styling](styling/index.md) - Colors, themes, and visual customization
-- [Graphics](guide/graphics.md) - Capability-aware rendering and progressive enhancement
-- [Performance](guide/performance.md) - Optimization techniques
-- [Debugging](guide/debugging.md) - Debug tools and frame inspection
-- [Architecture](architecture/index.md) - Runtime stack and data flow
-- [API Reference](api.md) - TypeDoc-generated API docs
-- [Developer Guide](dev/contributing.md) - Local setup and workflows
