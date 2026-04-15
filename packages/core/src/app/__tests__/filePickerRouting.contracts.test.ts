@@ -347,5 +347,4 @@ describe("file tree explorer routing contracts", () => {
     );
     assert.deepEqual(selected, []);
   });
-
 });
