@@ -1,9 +1,12 @@
 # Contributing
 
-Rezi welcomes issues and pull requests. This page summarizes the local workflow; see the linked guides for details.
+Rezi welcomes issues and pull requests. This page summarizes the local workflow.
+For behavior changes, the canonical testing policy is:
+- [Testing Policy](testing.md)
 
-Before starting implementation, review the mandatory
-[Code Standards](code-standards.md) checklist.
+Before starting implementation, review the mandatory guides:
+- [Code Standards](code-standards.md)
+- [Testing Policy](testing.md)
 
 ## Prerequisites
 
@@ -28,7 +31,16 @@ npm test
 npm run docs:build
 ```
 
-## Hook/API changes
+## Testing requirements
+
+When you change behavior:
+- test expected behavior, not current implementation shape
+- use the lowest fidelity that proves the contract, but no lower
+- include PTY evidence when terminal-visible behavior cannot be proven safely by semantic or replay tests
+- cover degraded-capability and failure paths when the contract depends on them
+- fix the implementation when a valid behavior-first test fails, unless the contract is genuinely under-specified
+
+## Hook and API changes
 
 - For public hook changes, update `docs/guide/hooks-reference.md` and `docs/guide/composition.md` in the same PR.
 - For animation hook changes (`useTransition`, `useSpring`, `useSequence`, `useStagger`) or `ui.box` transition behavior, also update `docs/guide/animation.md` and `docs/widgets/box.md`.
@@ -43,19 +55,19 @@ node --test packages/core/src/layout/__tests__/layout.overflow-scroll.test.ts
 node --test packages/core/src/app/__tests__/widgetRenderer.integration.test.ts
 ```
 
-## HSR Change Checklist
+## HSR change checklist
 
 If your change touches `app.view`, route integration, reconciliation identity, `createNodeApp({ hotReload })`, or `createHotStateReload`:
 
 - add app runtime tests for `app.replaceView(...)` / `app.replaceRoutes(...)` behavior
-- verify widget local state survives reload with stable ids/keys
-- verify failure paths keep the previous working view/routes
-- update user docs when API/limitations change
+- verify widget local state survives reload with stable ids or keys
+- verify failure paths keep the previous working view or routes
+- update user docs when API or limitations change
 - manually run `npm run hsr:demo:widget` once and confirm in-app code-editor save (`self-edit-code` + F6/Ctrl+O or save button + Enter) triggers reload without process restart
 
 If your change touches code-editor syntax behavior (`syntaxLanguage`, tokenizer exports, or renderer token painting):
 
-- add/extend unit tests for built-in language presets and custom tokenizer override paths
+- add or extend unit tests for built-in language presets and custom tokenizer override paths
 - verify fallback behavior for unsupported language names (`plain`)
 - update [widgets/code-editor](../widgets/code-editor.md) and [packages/core](../packages/core.md) API docs
 
