@@ -25,6 +25,16 @@ Treat it as a merge checklist for:
 - runtime/layout/reconciliation invariants
 - callback safety and async cancellation
 
+## Mandatory Testing Policy
+
+All behavior changes must follow `docs/dev/testing.md`.
+Treat it as the canonical testing policy for:
+- behavior-first test design
+- contract evidence
+- fidelity selection
+- degraded-capability and failure-path coverage
+- deciding whether an existing test should be kept, rewritten, promoted, or removed
+
 ## Exploration Protocol
 
 ### Before Writing Any Code
@@ -33,7 +43,8 @@ Run this checklist first:
 
 1. Read this file fully.
 2. Read `CLAUDE.md` sections relevant to the task.
-3. Read the target file and adjacent tests before changing behavior.
+3. Read `docs/dev/testing.md` before changing behavior or tests.
+4. Read the target file and adjacent tests before changing behavior.
 
 ### Exploration Order
 
@@ -171,35 +182,41 @@ See `CLAUDE.md` § Drawlist Codegen Protocol.
 
 ## Testing Protocol
 
+Behavior changes must follow the canonical policy in `docs/dev/testing.md`.
+
+Non-negotiable rules:
+- tests must assert expected behavior, not current implementation shape
+- choose the lowest fidelity that can prove the contract, but no lower
+- use terminal-real PTY evidence when semantic or replay tests cannot prove terminal-visible behavior safely
+- if a valid behavior-first test fails, keep the test and fix the implementation unless the contract is actually under-specified
+- do not weaken a valid expectation just to keep the code unchanged
+
+Quick commands:
+
 ```bash
-# Run all tests
-node scripts/run-tests.mjs
+# Full deterministic suite
+npm test
 
-# Run one test file
-node --test packages/core/src/widgets/__tests__/basicWidgets.test.ts
+# Package tests only
+npm run test:packages
 
-# Run filtered suite
-node scripts/run-tests.mjs --filter "widget"
+# Script tests only
+npm run test:scripts
+
+# End-to-end suites
+npm run test:e2e
+npm run test:e2e:reduced
 ```
 
-### Test Location Index
-
-| Category | Path |
-|----------|------|
-| Unit | `packages/core/src/**/__tests__/*.test.ts` |
-| Integration | `packages/core/src/__tests__/integration/` |
-| Stress/Fuzz | `packages/core/src/__tests__/stress/` |
-| Template tests | `packages/create-rezi/templates/*/src/__tests__/` |
-
-### Required Execution Order
-
-1. Run nearest unit tests first.
-2. If runtime/layout/renderer changed, run integration tests.
-3. Run full suite before commit.
+Execution order:
+1. Run the nearest credible test slice first.
+2. If runtime, layout, renderer, backend, or terminal behavior changed, run the relevant integration or scenario coverage too.
+3. If terminal-visible behavior changed, include PTY evidence when required by `docs/dev/testing.md`.
+4. Run the full suite before final commit when the risk warrants it.
 
 ### Mandatory Live PTY Validation for UI Regressions
 
-For rendering/layout/theme regressions, include a live PTY pass and frame-audit evidence.
+For rendering, layout, theme, capability, or terminal-integration regressions, include a live PTY pass and frame-audit evidence.
 
 Canonical runbook:
 - `docs/dev/live-pty-debugging.md`
@@ -209,7 +226,7 @@ Minimum checks:
 2. Exercise relevant routes and key paths.
 3. Capture `REZI_FRAME_AUDIT` logs.
 4. Analyze logs with `node scripts/frame-audit-report.mjs ... --latest-pid`.
-5. Include concrete evidence (hash deltas, route/key summaries) in your report.
+5. Include concrete evidence in your report.
 
 ## Verification Protocol (Two-Agent Verification)
 

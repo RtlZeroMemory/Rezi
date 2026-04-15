@@ -2,14 +2,19 @@
 
 Thanks for contributing to Rezi.
 
-Rezi is a **code-first terminal UI framework** for Node.js built on the Zireael C engine. The core design constraints (determinism, safety, and strict module boundaries) are deliberate; please read the docs before making behavior changes.
+Rezi is a code-first terminal UI framework for Node.js built on the Zireael C
+engine. The core design constraints are deliberate: deterministic behavior,
+strict module boundaries, and safe binary handling.
 
-## Quickstart (dev)
+Before changing behavior, read:
+- [Canonical testing policy](docs/dev/testing.md)
+- [Code standards](docs/dev/code-standards.md)
+
+## Quickstart
 
 Prerequisites:
-
 - Node.js 18+ (18.18+ recommended)
-- Rust (stable toolchain) for the native addon
+- Rust stable toolchain for the native addon
 - Git submodules enabled
 
 Clone and bootstrap:
@@ -31,7 +36,7 @@ npm run build
 npm test
 ```
 
-Native addon (host build + smoke):
+Native addon:
 
 ```bash
 npm run build:native
@@ -40,57 +45,67 @@ npm run test:native:smoke
 
 ## Repository layout
 
-- `packages/core` — runtime-agnostic TypeScript core (no Node APIs)
-- `packages/node` — Node.js backend (worker-thread ownership, IO, buffers)
-- `packages/native` — Rust + N-API addon bundling the Zireael engine
-- `packages/testkit` — test utilities and fixtures
-- `packages/jsx` — JSX runtime
-- `packages/bench` — benchmark harness (not published)
-- `examples/*` — runnable examples
-- `docs/` — GitHub Pages documentation site (MkDocs)
+- `packages/core` - runtime-agnostic TypeScript core
+- `packages/node` - Node.js backend
+- `packages/native` - Rust + N-API addon
+- `packages/testkit` - test utilities and fixtures
+- `packages/jsx` - JSX runtime
+- `packages/bench` - benchmark harness
+- `examples/*` - runnable examples
+- `docs/` - documentation site
 
-## Project constraints (read before changing)
+## Project constraints
 
 - `packages/core` must not import `node:*`, use `Buffer`, or depend on Node runtime semantics.
-- Binary parsing/building must follow the safety rules in the docs (bounded reads, alignment checks, deterministic failure).
-- Public APIs should be documented and stable within a release line.
-- Streaming hooks in `packages/core` must use runtime adapters/factories for environment-specific sources (`EventSource`, `WebSocket`, file tailing) and include cleanup + stale-update guards.
-- Animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition behavior must remain deterministic and be documented in docs + templates when user-visible behavior changes.
+- Binary parsing and building must remain bounded, deterministic, and explicit about failure.
+- Public APIs should remain documented and stable within a release line.
+- Streaming hooks in `packages/core` must use runtime adapters or factories for environment-specific sources and include cleanup plus stale-update guards.
+- Animation hooks and transition behavior must remain deterministic and be documented when user-visible behavior changes.
+
+## Testing requirements
+
+Behavior changes must follow the canonical testing policy in [docs/dev/testing.md](docs/dev/testing.md).
+
+Short version:
+- tests must assert expected behavior, not current implementation shape
+- choose the lowest fidelity that can prove the contract, but no lower
+- use terminal-real PTY evidence when terminal-visible behavior cannot be proven safely by semantic or replay tests
+- cover degraded-capability and failure paths when the contract depends on them
+- do not weaken a valid failing test to preserve current behavior; fix the implementation or make the contract gap explicit
 
 ## Pull requests
 
 PRs should include:
-
-- A clear problem statement and intended behavior
-- Tests for any behavior change (unit tests or golden fixtures where appropriate)
-- Docs updates for user-facing changes (manual and/or API docs)
+- a clear problem statement and intended behavior
+- tests for the behavior change at the right fidelity
+- contract source and degraded or failure-path coverage when relevant
+- docs updates for user-facing changes
 
 PRs may be rejected if they:
-
-- Blur module boundaries (Node code in `core`)
-- Add implicit behavior or non-determinism
-- Expand unsafe binary surface area without tight validation
+- blur module boundaries
+- add implicit behavior or non-determinism
+- expand unsafe binary surface area without tight validation
+- rely on implementation-shaped tests instead of behavioral coverage
 
 ## Style and tooling
 
 - Formatting and linting: Biome (`npm run fmt`, `npm run lint`)
 - TypeScript: strict mode (`npm run typecheck`)
-- Tests: `npm test` (keep tests deterministic and fast)
-- Hook changes: add/adjust hook docs (`docs/guide/hooks-reference.md`) and include race/cleanup tests.
-- Animation changes: update `docs/guide/animation.md` and `docs/widgets/box.md`, and add/adjust transition/hook tests.
+- Tests: `npm test`
+- Hook changes: update `docs/guide/hooks-reference.md` and include race or cleanup tests
+- Animation changes: update `docs/guide/animation.md` and `docs/widgets/box.md`, and add transition or hook tests
 
 ## Interaction guidelines
 
 - Interactive widgets with an `id` should be keyboard reachable via `Tab` unless there is a deliberate opt-out (`focusable: false`).
-- For complex table flows, prefer `useTable(...)` over manually wiring selection/sort state in each widget.
-- For stacked modal flows, prefer `useModalStack(...)` to keep push/pop behavior and focus restoration deterministic.
+- For complex table flows, prefer `useTable(...)` over manually wiring selection or sort state.
+- For stacked modal flows, prefer `useModalStack(...)` so push/pop behavior and focus restoration stay deterministic.
 - In composite widgets, use `ctx.useMemo(...)` and `ctx.useCallback(...)` when dependency-driven memoization is needed.
-- For hot state-preserving reload workflows (`app.replaceView` / `app.replaceRoutes` / `createHotStateReload`), keep widget ids/keys stable so local state and focus survive edits.
-- Use `npm run hsr:demo:widget` / `npm run hsr:demo:router` for manual HSR validation, and `npm run hsr:record:widget` / `npm run hsr:record:router` for GIF capture.
-- In widget demo validation, edit the `self-edit-code` snippet and save with `Enter` or `F6` to confirm hot-swap without terminal restart.
-- For code-editor syntax changes, keep tokenization deterministic and line-based; use `syntaxLanguage` presets or `tokenizeLine` + `tokenizeCodeEditorLine(...)`, then add/adjust tests in `codeEditor.syntax` suites.
+- For hot state-preserving reload workflows, keep widget ids and keys stable so local state and focus survive edits.
+- For code-editor syntax changes, keep tokenization deterministic and line-based, then add or adjust `codeEditor.syntax` coverage.
 
-## Widget and Design System guardrails
+## Widget and design-system guardrails
 
-- New widget kinds must be registered in `packages/core/src/widgets/protocol.ts`. Do not add new hardcoded kind lists in `packages/core/src/runtime/commit.ts`, `packages/core/src/layout/hitTest.ts`, or `packages/core/src/runtime/widgetMeta.ts`.
-- When adding interactive widgets, wire the matching recipe function and validate both legacy `Theme` and `ThemeDefinition` paths. Recipe output should provide the default style, and manual widget `style` overrides should merge on top.
+- New widget kinds must be registered in `packages/core/src/widgets/protocol.ts`. Do not add new hardcoded kind lists elsewhere in the runtime or layout path.
+- When adding interactive widgets, wire the matching recipe function and validate both legacy `Theme` and `ThemeDefinition` paths.
+- Recipe output should provide the default style, and manual widget `style` overrides should merge on top.
