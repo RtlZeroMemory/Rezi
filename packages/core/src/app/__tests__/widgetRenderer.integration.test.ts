@@ -713,6 +713,73 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(values, ["light", "system"]);
   });
 
+  test("select mouse click focuses without changing value and ArrowDown advances from the focused widget", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let value = "dark";
+    const values: string[] = [];
+    const view = () =>
+      ui.column({}, [
+        ui.text(`Selected:${value}`),
+        ui.select({
+          id: "theme",
+          value,
+          options: [
+            { value: "dark", label: "Dark" },
+            { value: "light", label: "Light", disabled: true },
+            { value: "system", label: "System" },
+          ],
+          onChange: (nextValue) => {
+            value = nextValue;
+            values.push(nextValue);
+          },
+        }),
+      ]);
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const rect = renderer.getRectByIdIndex().get("theme");
+    assert.ok(rect !== undefined);
+    if (!rect) return;
+    const x = rect.x + Math.max(0, Math.floor((rect.w - 1) / 2));
+    const y = rect.y + Math.max(0, Math.floor((rect.h - 1) / 2));
+
+    renderer.routeEngineEvent(mouseEvent(x, y, 3, { timeMs: 1, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(x, y, 4, { timeMs: 2 }));
+    assert.equal(renderer.getFocusedId(), "theme");
+    assert.equal(value, "dark");
+    assert.deepEqual(values, []);
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(value, "system");
+    assert.deepEqual(values, ["system"]);
+
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const text = createTestRenderer({ viewport: { cols: 40, rows: 6 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:system"), true);
+  });
+
   test("focusTrap wraps TAB within active trap", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

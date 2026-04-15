@@ -338,6 +338,25 @@ describe("focus indicator rendering contracts", () => {
     assert.equal(op?.style?.underline === true, false);
   });
 
+  test("select focusConfig indicator:none suppresses focus styling", () => {
+    const textOps = drawTextOps(
+      renderOps(
+        ui.select({
+          id: "sel-none",
+          value: "one",
+          options: Object.freeze([{ value: "one", label: "One" }]),
+          focusConfig: Object.freeze({ indicator: "none" }),
+        }),
+        "sel-none",
+        defaultTheme,
+      ),
+    );
+    const op = findDrawTextByToken(textOps, "One");
+    assert.ok(op !== null, "select should render");
+    assert.equal(op?.style?.bold === true, false);
+    assert.equal(op?.style?.underline === true, false);
+  });
+
   test("slider focusConfig indicator:none suppresses focus styling", () => {
     const focusedDefault = drawTextOps(
       renderOps(
