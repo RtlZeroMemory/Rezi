@@ -4,7 +4,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 ## Concept
 
-`__APP_NAME__` is a multi-deck starship operations console. It demonstrates routed application architecture, deterministic telemetry simulation, rich widgets, layered overlays, and declarative animation hooks in a cohesive, production-like TUI.
+`__APP_NAME__` is a multi-deck starship operations console. It demonstrates routed application architecture, deterministic telemetry simulation, rich widgets, layered overlays, and declarative animation hooks in a single advanced template.
 
 ## Decks
 
