@@ -1,8 +1,8 @@
-# Migration: From Manual Layout Math to Constraints
+# Constraints Instead of Manual Layout Math
 
 Constraints are for **relational / derived** sizing and visibility rules. They reduce glitch-prone “hand math” in view functions and make intent explicit.
 
-This guide is a playbook for migrating older Rezi code (or early alpha experiments) into the helper-first constraint path.
+This guide shows how to replace ad-hoc layout math with the helper-first constraint path.
 
 See also:
 - `docs/guide/constraints.md`
@@ -85,7 +85,7 @@ ui.box(
 
 ## Anti-pattern checklist
 
-When you see any of these in a view function, consider migrating:
+When you see any of these in a view function, prefer constraints instead:
 
 - `Math.floor/ceil/max/min` used to compute widget `width`/`height`
 - Persisting `viewport` sizes in state for layout decisions
@@ -98,6 +98,6 @@ When you see any of these in a view function, consider migrating:
 
 Constraints are deterministic: unknown functions and invalid references are not silently coerced.
 
-If a migration surfaces an error:
+If a constraint surfaces an error:
 - Fix the expression, or
 - Replace it with a helper that encodes the intended rule more clearly.

@@ -114,7 +114,7 @@ bun add -d @rezi-ui/testkit
 
 **Project scaffolding CLI**
 
-Generate a ready-to-run Rezi app with TypeScript configured and polished starter templates (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, `starship`):
+Generate a ready-to-run Rezi app with TypeScript configured and the public starter set (`minimal`, `cli-tool`, `starship`):
 
 ```bash
 npm create rezi my-app

@@ -1,10 +1,10 @@
 # Widget API Reference
 
-Rezi ships a comprehensive built-in widget catalog. Every widget is a plain TypeScript function that returns a `VNode` -- the virtual-DOM node Rezi reconciles, lays out, and renders to the terminal.
+Rezi ships a built-in widget catalog. Every widget is a plain TypeScript function that returns a `VNode` -- the node Rezi reconciles, lays out, and renders to the terminal.
 
 ## Recommended Approach: `ui.*` Factory Functions
 
-Always build your views through the `ui` namespace. These factories are the **safest, highest-level API** and are the only surface covered by deterministic VNode contract tests.
+Always build your views through the `ui` namespace. These factories are the canonical public API and the only surface covered by deterministic VNode contract tests.
 
 ```typescript
 import { ui } from "@rezi-ui/core";
@@ -34,7 +34,7 @@ Benefits of `ui.*` factories:
 - `ui.textarea(...)` is a multiline variant of `ui.input(...)` and compiles to VNode kind `"input"` with `multiline: true`.
 - In tests, `createTestRenderer(...).render(...).findAll("textarea")` matches those multiline input nodes.
 
-## Beautiful Defaults
+## Default Recipe Styling
 
 Core interactive widgets are recipe-styled by default (buttons, inputs,
 selects, checkboxes, progress bars, callouts). Use `intent` on buttons for

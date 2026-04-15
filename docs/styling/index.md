@@ -1,6 +1,6 @@
 # Styling
 
-Rezi provides a comprehensive styling system for terminal UIs, including direct style props, semantic themes, icons, and focus indicators.
+Rezi provides direct style props, semantic themes, icons, and focus indicators for terminal UIs.
 
 ## Overview
 
@@ -12,7 +12,7 @@ Rezi styling works at two levels:
 **Semantic Themes**
 : Use predefined theme tokens for consistent colors across your application.
 
-## Beautiful Defaults
+## Default Recipe Styling
 
 Core interactive widgets are recipe-styled by default (buttons, inputs,
 textareas, selects, checkboxes, progress, callouts). Use `intent` on buttons for common
