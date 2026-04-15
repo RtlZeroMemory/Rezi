@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.68] - 2026-04-15
+
+### CI / Tooling
+
+- **release**: Follow-up release tag after the canceled `v0.1.0-alpha.67` run so the already-merged `create-rezi` Windows install fix and public 3-template scaffold contract are published to npm.
+
 ## [0.1.0-alpha.67] - 2026-04-15
 
 ### CI / Tooling
