@@ -1,6 +1,10 @@
 # Testing
 
-This guide is the entry point for testing Rezi apps and framework changes.
+This guide is the entry point for testing Rezi apps.
+
+If you are changing the Rezi framework itself, use the canonical developer
+policy instead:
+- [Developer Testing Policy](../dev/testing.md)
 
 ## Quick start
 
@@ -28,29 +32,34 @@ Filter to a subset:
 node scripts/run-tests.mjs --filter "layout"
 ```
 
-`--filter` matches a literal substring in the discovered relative test file
-paths.
+## What to test in an app
 
-## What to test
+Focus on user-visible behavior:
+- state changes and action flow
+- rendering and layout behavior
+- focus and keyboard interaction
+- mouse, wheel, and paste behavior when your app supports them
+- resize and reflow behavior
+- bug regressions
 
-- Unit behavior for pure helpers and validators.
-- Integration behavior for rendering, routing, and event flow.
-- Regression coverage for bugs (repro test first, then fix).
-- Snapshot/visual stability for renderer-facing changes.
-- Responsive behavior validation across multiple viewport sizes (`**/*.test.{ts,tsx,js,jsx}`).
+## Choosing the right test level
 
-## Renderer and widget tests
+Use the lowest level that proves the behavior.
 
-For high-level widget assertions, prefer `createTestRenderer()` so tests can use:
+- Unit tests for pure helpers and reducers.
+- Semantic rendering or scenario tests for app behavior that does not require a real terminal.
+- PTY validation for terminal-visible behavior, terminal capability behavior, or terminal input recovery that headless tests cannot prove safely.
 
-- `findById(...)`
-- `findAll(...)`
-- `findText(...)`
-- `toText()`
+`createTestRenderer()` is useful for semantic rendering assertions, but it is
+not the final oracle for terminal-real behavior.
 
-## Snapshot workflow
+## Snapshots
 
-Use the snapshot CLI:
+Use snapshots only when the snapshot encodes a clear contract.
+Do not use snapshots as a substitute for deciding what behavior the app should
+have.
+
+Snapshot CLI:
 
 ```bash
 node scripts/rezi-snap.mjs --verify
@@ -59,13 +68,13 @@ node scripts/rezi-snap.mjs --update
 
 ## UI regression validation
 
-For layout/theme/render regressions, include a live PTY run with frame-audit evidence:
-
+For layout, theme, rendering, or capability-sensitive regressions, include a
+live PTY run with frame-audit evidence:
 - [Live PTY UI Testing and Frame Audit Runbook](../dev/live-pty-debugging.md)
 
 ## Related
 
+- [Developer Testing Policy](../dev/testing.md)
 - [Hooks Reference](hooks-reference.md)
 - [Debugging](debugging.md)
-- [Dev Testing Deep Dive](../dev/testing.md)
 - [Testkit Package](../packages/testkit.md)

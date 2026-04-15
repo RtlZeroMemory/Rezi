@@ -1,67 +1,345 @@
-# Testing
+# Testing Policy
 
-Rezi uses the built-in `node:test` runner via a deterministic test discovery
-script. The test suite currently contains **873+ tests** across multiple
-categories.
+This document is the canonical testing policy for Rezi framework changes.
 
-## Running Tests
+Use it when you:
+- add or change widget behavior
+- change routing, focus, layout, rendering, or terminal integration
+- rewrite or remove existing tests
+- review whether a test actually proves the behavior it claims to prove
 
-### Full Suite
+This document is normative.
+`AGENTS.md`, `CONTRIBUTING.md`, and other testing entry points summarize it or
+link back here.
+
+## Core Rule
+
+Tests in Rezi must assert expected behavior, not current implementation shape.
+
+A test is only useful if it makes a clear claim about what Rezi should do.
+A test is weak if it only freezes what the current code happens to do.
+
+Examples of good claims:
+- an input gains focus when clicked
+- a modal blocks background interaction and restores focus on close
+- a virtual list keeps the visible viewport stable across resizes
+- a parser rejects malformed input with a structured error
+
+Examples of weak claims:
+- a cache object keeps the same identity
+- hook cell order stayed the same
+- a private method was called in the same sequence
+- a snapshot still matches even though the intended behavior is unclear
+
+## Testing Principles
+
+Every new or rewritten test should follow these rules.
+
+### Behavior-first
+
+State the behavior under test in terms of an observable outcome.
+
+Good:
+- selected item moves to the next enabled option
+- blur happens when focus leaves the widget
+- terminal-visible output changes after a theme switch
+
+Weak:
+- internal focus bookkeeping matches the current implementation
+- a private structure contains the same fields in the same order
+
+### Deterministic and Reviewable
+
+Tests must be deterministic enough for review and CI.
+Avoid timing-dependent assertions, environment-dependent randomness, and opaque
+large snapshots that reviewers cannot evaluate.
+
+### Honest About Specification Gaps
+
+If a behavior is under-specified, do not invent a strict oracle just to make a
+coverage claim.
+Leave the gap explicit and tighten the contract first.
+
+### Fix Valid Failures, Do Not Weaken Them
+
+If a behavior-first test is valid and fails, the default response is to fix the
+implementation.
+Do not weaken the expectation to keep the code unchanged.
+
+Valid failing tests may expose one of these cases:
+- product bug
+- under-specified contract
+- incorrect test oracle
+- harness defect
+- environment limitation
+
+The test should only be relaxed when the expected behavior was not actually
+supported by repo evidence.
+
+## Contract Evidence
+
+A behavior expectation must be backed by concrete repo evidence.
+
+Strong evidence:
+- public API and types
+- canonical docs
+- examples or templates when they are clearly intentional and stable
+- existing stable contract tests
+- issue or PR intent when it is specific enough to define behavior
+
+Evidence that is not strong enough by itself:
+- incidental current behavior
+- implementation structure
+- convenience snapshots with unclear intent
+- a helper returning a certain shape because that is how it happens to work now
+
+When writing or reviewing a test, ask:
+- what behavior is promised?
+- where is that promise stated or implied strongly enough to rely on it?
+- what observable outcome proves that promise?
+
+## Fidelity Ladder
+
+Use the lowest fidelity that can prove the contract, but no lower.
+
+### 1. Unit or Lower-level Contract Tests
+
+Use these for:
+- pure helpers
+- parsers and encoders
+- invariant checks
+- binary protocol contracts
+- lower-level state machines where the lower-level contract itself matters
+
+These tests should protect the real lower-level contract, not private incidental
+structure.
+
+### 2. Semantic Scenario Tests
+
+Use semantic tests when the behavior is best proven at the app or widget level,
+but a real terminal is not required.
+
+Good targets:
+- focus movement
+- action dispatch
+- selection changes
+- route transitions
+- modal blocking at the semantic layer
+- resize and interaction rules where text-mode semantic output is sufficient
+
+Important:
+- semantic helpers are not the final truth for terminal-visible behavior
+- `createTestRenderer()` is a semantic convenience helper, not the final oracle
+  for terminal correctness
+
+### 3. Replay Scenario Tests
+
+Use replay tests when the scenario model and event flow matter but a PTY is not
+required.
+
+Good targets:
+- deterministic event replays
+- scenario-level contract evaluation
+- event ordering behavior that is stronger than a pure unit test but does not
+  require terminal-real evidence
+
+### 4. Terminal-real PTY Tests
+
+Use PTY tests when the contract depends on actual terminal behavior and a
+headless semantic assertion is not enough.
+
+Good targets:
+- terminal-visible rendering or damage behavior
+- overlay, focus, and input interactions that depend on terminal integration
+- capability-dependent behavior
+- terminal byte-stream recovery behavior
+- worker/native/backend integration where the visible outcome matters
+
+## When PTY Coverage Is Mandatory
+
+PTY or equivalent terminal-real validation is required when the behavior depends
+on the real terminal path in a way that semantic or replay testing cannot prove
+safely.
+
+This includes cases such as:
+- terminal-visible rendering and redraw behavior
+- focus, overlay, or cursor interactions whose correctness depends on the real
+  backend path
+- capability-driven behavior such as mouse, focus events, bracketed paste, or
+  clipboard support
+- malformed or partial terminal input where byte-stream recovery matters
+- worker/native/backend behavior where the user-visible result is the contract
+
+For UI regressions and terminal integration work, use the live PTY runbook:
+- [Live PTY UI Testing and Frame Audit Runbook](live-pty-debugging.md)
+
+## Failure and Degraded-capability Coverage
+
+Where the contract is affected by missing terminal capabilities or by failure
+paths, tests must cover those paths explicitly.
+
+Examples:
+- `supportsMouse = false`
+- `supportsFocusEvents = false`
+- bracketed paste boundaries and incomplete paste recovery
+- malformed or incomplete escape sequences
+- resize storms
+- backend or native failure paths when the contract depends on safe recovery or
+  structured failure handling
+
+Do not add speculative failure assertions when the user-visible fallback is not
+actually specified.
+If the fallback is under-specified, document the gap and avoid over-claiming.
+
+## Acceptable and Unacceptable Oracles
+
+### Usually acceptable
+
+These generally prove real behavior:
+- visible text or screen regions
+- selected value or selected item state
+- focus transitions
+- callback or action outcomes
+- route transitions
+- modal blocking and focus restoration
+- scroll behavior and visible viewport changes
+- structured failure results
+- byte-level protocol output, but only when the protocol itself is the contract
+
+### Usually unacceptable unless they protect a justified lower-level contract
+
+These are weak by default:
+- cache identity
+- hook cell order
+- slot bookkeeping
+- private method call order
+- incidental object shape
+- snapshots that freeze current behavior without a declared contract
+
+A weak oracle is acceptable only when you can explain the actual lower-level
+contract it protects.
+
+## Existing Test Migration Rules
+
+When you touch existing coverage, classify the tests honestly.
+
+### Keep
+
+Keep a test when it still protects a meaningful contract at the right level.
+
+### Rewrite
+
+Rewrite a test when the behavior matters but the current oracle is too tied to
+implementation details.
+
+### Promote
+
+Promote a test to a higher fidelity when the current layer is too weak to prove
+the user-visible contract.
+
+Examples:
+- semantic-only coverage that should move to PTY
+- lower-level contract coverage that needs an app-level behavior assertion too
+
+### Remove or Merge
+
+Remove or merge a test only when:
+- it is redundant or invalid
+- stronger coverage now exists
+- it no longer protects a distinct lower-level contract
+
+Do not keep weak tests just because they already exist.
+Do not remove lower-level tests that still protect a real lower-level contract.
+
+## New Test Requirements
+
+Every new or rewritten behavioral test should make these points clear in the
+code or surrounding review context:
+- the behavior under test
+- the contract source
+- the chosen fidelity
+- degraded-capability or failure-path expectations when relevant
+
+This does not require boilerplate comments on every test.
+It does require that the behavior and its basis are obvious to reviewers.
+
+## Bug-regression Tests
+
+A regression test must pin the intended behavior.
+
+Do this:
+- write the behavior that should hold
+- keep the regression scope narrow and reviewable
+- fix the implementation if the expectation is valid
+
+Do not do this:
+- snapshot the bug as the new baseline
+- replace a clear behavioral expectation with a weaker incidental assertion
+- write a regression test that only proves the bug still exists
+
+## Scope Honesty
+
+Do not claim a widget family or subsystem is fully covered unless the coverage
+can be defended against the contract and the relevant state transitions.
+
+If behavior is under-specified, say so.
+If a harness cannot currently prove the behavior correctly, say so.
+If a broader redesign is required, say so.
+
+Rezi values honest boundaries over inflated coverage claims.
+
+## Practical Repo Guidance
+
+### Running tests
+
+Full deterministic suite:
 
 ```bash
 npm test
 ```
 
-This executes `node scripts/run-tests.mjs`, which deterministically discovers
-and runs all test files. Discovery is based on sorted directory walks -- no shell
-globs or non-deterministic ordering.
-
-### Scoped Runs
-
-Run only package tests (compiled `.test.js` files under `packages/*/dist/`):
+Package tests only:
 
 ```bash
 npm run test:packages
 ```
 
-Run only script tests (`.test.mjs` files under `scripts/__tests__/`):
+Script tests only:
 
 ```bash
 npm run test:scripts
 ```
 
-Run the named release-critical package suites that the fast PR gate surfaces:
+End-to-end tests:
 
 ```bash
-npm run test:release-critical
+npm run test:e2e
+npm run test:e2e:reduced
 ```
 
-Run the named terminal-real release-critical slice after building the native addon:
-
-```bash
-npm run build:native
-npm run test:release-critical:terminal
-```
-
-Print the CI-facing testing progress summary locally:
-
-```bash
-npm run test:progress
-```
-
-### Individual Test Files
-
-Run a single test file directly with Node's test runner:
-
-```bash
-node --test packages/core/dist/runtime/__tests__/reconcile.keyed.test.js
-```
-
-Note that tests run against compiled output in `dist/`, so you must build first:
+Individual compiled test file:
 
 ```bash
 npm run build && node --test packages/core/dist/path/to/test.js
 ```
+
+### Common helpers and where they fit
+
+`createTestRenderer()`
+: Use for semantic rendering and layout assertions. Do not treat it as the
+  final oracle for terminal-real behavior.
+
+`TestEventBuilder`
+: Use to build readable deterministic event sequences instead of hand-encoding
+  batches.
+
+`matchesSnapshot(...)`
+: Use for stable text snapshots when the snapshot encodes a declared contract.
+  Do not use snapshots as a substitute for identifying the behavior under test.
+
+Shared scenario runners in `@rezi-ui/core/testing` and `@rezi-ui/node/testing`
+: Use these when scenario-level semantic, replay, or PTY execution is the right
+  fidelity for the contract.
 
 ### Drawlist codegen guardrail
 
@@ -72,400 +350,22 @@ npm run codegen
 npm run codegen:check
 ```
 
-`codegen:check` is enforced in CI and fails if
-`packages/core/src/drawlist/writers.gen.ts` is out of sync with
-`scripts/drawlist-spec.ts`.
+`codegen:check` fails if generated writers are out of sync with the drawlist
+spec.
 
-### End-to-End Tests
+## Review Checklist
 
-```bash
-npm run test:e2e
+When reviewing a test change, check these questions first:
+- what behavior is being asserted?
+- what repo evidence supports that expectation?
+- is the chosen fidelity strong enough?
+- should degraded-capability or failure behavior also be covered?
+- is the oracle observable, or is it implementation-shaped?
+- if an old test remains, what contract does it still protect?
 
-# Reduced profile (fewer scenarios, faster)
-npm run test:e2e:reduced
-```
-
-## CI Gates
-
-Rezi keeps the gate split tied to real repo test entrypoints instead of abstract labels.
-
-- Fast PR gate: Linux / Node 22 quality checks plus the named release-critical package suites.
-- Full PR gate: the broader Node/OS matrix, reduced/full terminal e2e, PTY scenarios, native smoke, and Bun coverage.
-- Nightly gate: the scheduled rerun of the full cross-platform stack plus the release-critical package and terminal slices.
-- Release gate: the tag workflow repeats the release-critical slices before publishing, then runs the release matrix and Bun coverage.
-
-The release-critical suites surfaced in CI are:
-
-- Input editing and focus-capture contracts
-- Table selection, sorting, viewport, and row-key behavior
-- Virtual-list visible range and navigation behavior
-- Command palette query, async fetch, selection, and close behavior
-- File picker and file-tree explorer browse, open, and select flows
-- Modal focus entry and return behavior
-- Code editor editing, selection, and scroll behavior
-- Node terminal IO and worker/native backend flow
-
-## New Test Declarations
-
-New tests should declare two things before review:
-
-- Contract source: the docs page, public API, regression, or existing contract file that defines the behavior being pinned.
-- Fidelity: the lowest test level that can still prove the user-visible behavior, for example helper-level, semantic app/render coverage, or terminal-real PTY/e2e coverage.
-
-If the contract source is not obvious from the suite name, add a short comment near the test. If the behavior depends on terminal capabilities, stream ordering, or PTY/native behavior, prefer terminal-real coverage or explain why a lower-fidelity test is still sufficient. The pull-request template repeats this check during review.
-
-## Live PTY Rendering Validation (for UI regressions)
-
-For terminal rendering/theme/layout regressions, run a live PTY session with
-frame-audit instrumentation in addition to normal tests.
-
-Use the dedicated runbook:
+## Related Documents
 
 - [Live PTY UI Testing and Frame Audit Runbook](live-pty-debugging.md)
-
-That guide includes deterministic viewport setup, worker-mode run commands,
-scripted key driving, and cross-layer telemetry analysis.
-
-## Test Categories
-
-### Unit Tests
-
-Standard unit tests for pure functions and isolated modules. These make up the
-majority of the test suite and cover:
-
-- Layout calculations
-- Text measurement
-- Theme resolution
-- Keybinding matching
-- State machine transitions
-- Update queue ordering
-
-### Golden Tests (ZRDL/ZREV Fixtures)
-
-Golden tests compare binary output byte-for-byte against committed fixture
-files. They are used where **byte-level stability** matters:
-
-- **ZRDL fixtures** -- Drawlist output. The renderer produces a ZRDL binary
-  drawlist for a given widget tree, and the test asserts it matches a committed
-  `.zrdl` fixture file exactly.
-- **ZREV fixtures** -- Event batch parsing. A committed `.zrev` binary is
-  parsed, and the result is compared against expected structured output.
-
-Golden tests catch unintentional changes to the binary protocol. When a
-legitimate protocol change is made, the fixtures must be regenerated and
-committed alongside the code change.
-
-### Fuzz-Lite Tests (Property-Based)
-
-Bounded property-based tests for binary parsers and encoders. These tests
-generate random inputs within defined bounds and verify invariants:
-
-- Parsers never throw (they return `ParseResult`).
-- Round-trip encoding/decoding produces the original value.
-- Out-of-bounds inputs produce structured error results, not crashes.
-
-Fuzz-lite tests are fast (bounded iteration count) and run as part of the
-normal test suite -- they do not require external fuzzing infrastructure.
-
-### Integration Tests
-
-End-to-end tests that exercise the full rendering pipeline from state through
-view function to drawlist output. These tests use the `@rezi-ui/testkit`
-headless backend to run without a real terminal.
-
-Integration tests cover:
-
-- Full app lifecycle (create, render, update, destroy)
-- Widget interaction sequences (focus, input, navigation)
-- Routing and navigation
-- Resize and reflow behavior
-
-### Hot State-Preserving Reload (HSR) Tests
-
-When changing `app.replaceView(...)`, `app.replaceRoutes(...)`, `createNodeApp({ hotReload })`, or `createHotStateReload(...)`, include:
-
-- successful runtime widget-view swap test (`replaceView` while `Running`)
-- successful runtime route-table swap test (`replaceRoutes` while `Running` in route mode)
-- preservation test for local widget state/focus/cursor with stable ids/keys
-- failure-path test proving previous view/routes remain active after reload import errors
-- mode guard tests (raw mode and incompatible API usage)
-
-### Code Editor Syntax Tokenizer Tests
-
-When changing `syntaxLanguage`, tokenizer exports, or code-editor token paint behavior, include:
-
-- preset coverage for mainstream language tokenization (`typescript`, `javascript`, `json`, `go`, `rust`, `c`, `cpp`/`c++`, `csharp`/`c#`, `java`, `python`, `bash`)
-- fallback coverage for unsupported languages (`plain`)
-- custom-tokenizer override coverage (`tokenizeLine` and `tokenizeCodeEditorLineWithCustom(...)`)
-- renderer integration coverage proving tokens and active cursor-cell highlighting render together safely
-
-Quick scoped run:
-
-```bash
-node scripts/run-tests.mjs --filter "codeEditor.syntax"
-```
-
-`--filter` performs a literal substring match against discovered relative test
-file paths. It does not interpret the value as a raw regular expression.
-
-### Manual HSR + GIF Workflow
-
-Use the built-in demos under `scripts/hsr/`:
-
-```bash
-npm run hsr:demo:widget
-npm run hsr:demo:router
-```
-
-Preferred widget-demo quit keys: `F10` / `Alt+Q` / `Ctrl+C` / `Ctrl+X`.
-
-Live-edit these files while each demo is running:
-
-- widget demo: `scripts/hsr/widget-view.mjs`
-- router demo: `scripts/hsr/router-routes.mjs`
-
-Widget demo shortcut:
-
-- the in-app `self-edit-code` editor is focused on startup and shows the TypeScript snippet used for the title banner
-- edit `SELF_EDIT_BANNER = "..."` and save with `F6` (fallback: `Ctrl+O`, then `Ctrl+S`; `Enter` works on the save button) to rewrite `widget-view.mjs` from inside the demo
-- save/reload status appears in a modal overlay to avoid log noise in the capture surface
-- the banner text in the header is sourced from `widget-view.mjs` `SELF_EDIT_BANNER`, so successful HSR swaps are visually obvious
-- if your terminal uses XON/XOFF flow control, prefer `F6`/`Ctrl+O` because `Ctrl+S` may be swallowed by the terminal
-
-One-command recording:
-
-```bash
-npm run hsr:record:widget
-npm run hsr:record:router
-```
-
-`hsr:record:*` uses manual capture by default so you can type/edit freely during recording.
-
-Use scripted mode for deterministic multi-scene captures:
-
-```bash
-npm run hsr:record:widget:auto
-node scripts/record-hsr-gif.mjs --mode widget --scripted
-node scripts/record-hsr-gif.mjs --mode widget --scripted --scene-text "My custom headline"
-```
-
-The recorder writes an asciinema cast and attempts GIF conversion via `agg` (or
-`asciinema gif` when available).
-
-### High-level Widget Rendering Tests
-
-For widget-level tests, prefer `createTestRenderer()` from `@rezi-ui/core` so
-tests do not need manual `commitVNodeTree() -> layout() -> renderToDrawlist()`
-setup:
-
-```typescript
-import { createTestRenderer, ui } from "@rezi-ui/core";
-
-const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
-const frame = renderer.render(
-  ui.column({}, [
-    ui.text("Hello"),
-    ui.button({ id: "submit", label: "Submit" }),
-  ]),
-);
-
-frame.findText("Hello");
-frame.findById("submit");
-frame.findAll("button");
-```
-
-`frame.toText()` returns a deterministic text snapshot of the rendered screen.
-
-### Fluent Event Simulation
-
-For integration tests that need input batches, use `TestEventBuilder` instead
-of hand-encoding ZREV bytes:
-
-```typescript
-import { TestEventBuilder } from "@rezi-ui/core";
-
-const events = new TestEventBuilder();
-events.pressKey("Enter").type("hello@example.com").click(10, 5).resize(120, 40);
-
-backend.pushBatch(events.buildBatch());
-```
-
-This keeps event sequences readable and protocol-safe.
-
-### Text Snapshot Assertions
-
-Use `matchesSnapshot(...)` from `@rezi-ui/testkit` to lock rendered text frames:
-
-```typescript
-import { matchesSnapshot } from "@rezi-ui/testkit";
-
-matchesSnapshot(frame.toText(), "my-widget-default");
-```
-
-Snapshots are read from:
-
-```
-<test-directory>/__snapshots__/my-widget-default.txt
-```
-
-Set `UPDATE_SNAPSHOTS=1` when intentionally updating snapshot outputs.
-
-### Stress Tests
-
-Tests designed to exercise the system under extreme conditions:
-
-- Deep widget trees (hundreds of nesting levels)
-- Wide widget trees (thousands of siblings)
-- Rapid state update sequences
-- Large text content
-
-Stress tests verify that the runtime does not crash, exceed memory bounds, or
-exhibit non-linear performance degradation.
-
-## Animation Regression Suites
-
-Animation behavior has dedicated deterministic suites and should be run for any motion-related change:
-
-- `node --test packages/core/src/widgets/__tests__/composition.animationHooks.test.ts`
-- `node --test packages/core/src/app/__tests__/widgetRenderer.transition.test.ts`
-- `node --test packages/core/src/runtime/__tests__/commit.fastReuse.regression.test.ts`
-
-These suites cover hook retargeting/timer cleanup, `ui.box` transition property filters (`position`/`size`/`opacity`), and reconciliation fast-reuse correctness with transition props.
-
-## Reconciliation Hardening Matrix
-
-Reconciliation edge-cases are covered by dedicated runtime suites:
-
-- `packages/core/src/runtime/__tests__/reconcile.keyed.test.ts`
-- `packages/core/src/runtime/__tests__/reconcile.unkeyed.test.ts`
-- `packages/core/src/runtime/__tests__/reconcile.mixed.test.ts`
-- `packages/core/src/runtime/__tests__/reconcile.composite.test.ts`
-- `packages/core/src/runtime/__tests__/reconcile.deep.test.ts`
-
-These suites lock deterministic behavior for keyed reorder/insert/remove,
-unkeyed grow/shrink, mixed keyed+unkeyed slots, `defineWidget` hook/state
-persistence, and deep-tree reconciliation.
-
-## Renderer Correctness Audit (Baseline Lock)
-
-The renderer correctness audit maintains a baseline lock to track the known-good
-state of renderer tests:
-
-```yaml
-timestamp_utc: 2026-02-18T11:07:15Z
-head: a441bba78ddc99ece4eb76965ce36c0aec9225fe
-branch: renderer-correctness-audit
-node: v20.19.5
-npm: 10.8.2
-baseline_test_count: 2488
-```
-
-Audited areas and their dedicated test suites:
-
-| Area       | Test file                                    | Tests |
-|------------|----------------------------------------------|-------|
-| Clip       | `renderer/__tests__/renderer.clip.test.ts`   | 18    |
-| Border     | `renderer/__tests__/renderer.border.test.ts` | 45    |
-| Text       | `renderer/__tests__/renderer.text.test.ts`   | 28    |
-| Damage     | `renderer/__tests__/renderer.damage.test.ts` | 17    |
-| Scrollbar  | `renderer/__tests__/renderer.scrollbar.test.ts` | 24 |
-| **Total**  |                                              | **132** |
-
-Notable bug fix captured by the audit: `overflow: "visible"` behavior for
-`row`/`column`/`grid`/`box` containers was fixed to inherit the parent clip
-instead of always creating a local content clip.
-
-## Test Discovery
-
-The `scripts/run-tests.mjs` script discovers test files deterministically:
-
-1. **Script tests:** Recursively walks `scripts/__tests__/` for `.test.mjs`
-   files.
-2. **Package tests:** For each package in `packages/*/`, recursively walks
-   `dist/` for files matching `**/__tests__/**/*.test.js`.
-3. All discovered paths are sorted lexicographically.
-4. The combined list is passed to `node --test` as explicit file arguments.
-
-This avoids shell glob non-determinism and ensures consistent test ordering
-across platforms.
-
-## Adding New Tests
-
-1. **Create the test file.** Place it in a `__tests__/` directory adjacent to
-   the module being tested:
-
-    ```
-    packages/core/src/layout/__tests__/myModule.test.ts
-    ```
-
-2. **Use `node:test` APIs.** Import `describe`, `it`, and `assert` from
-   `node:test` and `node:assert`:
-
-    ```typescript
-    import { describe, it } from "node:test";
-    import assert from "node:assert/strict";
-
-    describe("myModule", () => {
-      it("should compute the correct value", () => {
-        assert.strictEqual(myFunction(1, 2), 3);
-      });
-    });
-    ```
-
-3. **Build.** Run `npm run build` so the TypeScript test file is compiled to
-   `dist/`.
-
-4. **Run.** Execute the full suite or just your new file:
-
-    ```bash
-    npm test
-    # or
-    node --test packages/core/dist/layout/__tests__/myModule.test.js
-    ```
-
-## CI Integration
-
-Tests run automatically through the workflow split described above instead of a
-single CI flow.
-
-Pull requests and pushes use `ci.yml`:
-
-1. Fast gate:
-   `fast gate / quality` runs the blocking repo checks with `npm ci`,
-   `npm run lint`, `npm run typecheck`, `npm run build`, and the existing
-   guardrail commands.
-2. Fast gate:
-   `fast gate / release-critical suites` runs `npm run test:progress` and
-   `npm run test:release-critical`, which surfaces the named release-critical
-   package suites separately from the broader matrix.
-3. Full gate:
-   `full gate / create-rezi smoke`, `full gate / node <version> / <os>`, and
-   `full gate / bun / ubuntu-latest` run after the fast gate and cover the
-   broader matrix, replay harness, PTY/native build work, terminal e2e, native
-   smoke, and Bun coverage. These jobs also use `npm ci`.
-
-Nightly runs use `nightly.yml`:
-
-1. `nightly gate / release-critical suites` repeats the package slice and the
-   terminal slice (`npm run test:release-critical:terminal`).
-2. `nightly gate / create-rezi smoke`, the 3x3 Node/OS matrix, and Bun rerun
-   the current full stack on a schedule.
-
-Tag-based release runs use `release.yml`:
-
-1. `release gate / quality preflight` performs the blocking publish checks with
-   `npm ci`.
-2. `release gate / release-critical suites` repeats the named release-critical
-   package and terminal slices before the release matrix.
-3. `release gate / create-rezi smoke`, `release gate / node <version> / <os>`,
-   and `release gate / bun / ubuntu-latest` run the remaining release checks.
-
-The separate release-critical job is the visible mapping from the gate model to
-the named release-critical suites listed earlier in this document. Failures in
-those jobs block the downstream full or release fan-out work.
-
-## Related
-
-- [Perf Regressions](./perf-regressions.md)
-- [Repro Replay](./repro-replay.md)
-- [Build](build.md)
+- [Guide: Testing Rezi Apps](../guide/testing.md)
+- [Contributing](contributing.md)
+- [Agent Workflow Guide](https://github.com/RtlZeroMemory/Rezi/blob/main/AGENTS.md)

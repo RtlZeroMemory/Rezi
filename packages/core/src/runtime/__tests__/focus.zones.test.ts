@@ -398,6 +398,44 @@ describe("focus zones - routeKeyWithZones", () => {
     assert.equal(res.nextZoneId, null);
   });
 
+  test("mixed focus list: Tab leaves a multi-item zone instead of stepping to another item in the same zone", () => {
+    const zones = new Map<string, FocusZone>([
+      ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
+    ]);
+
+    const res = routeKeyWithZones(
+      keyEvent(ZR_KEY_TAB),
+      routingCtx({
+        focusedId: "a1",
+        activeZoneId: "z1",
+        focusList: ["before", "a1", "a2", "after"],
+        zones,
+      }),
+    );
+
+    assert.equal(res.nextFocusedId, "after");
+    assert.equal(res.nextZoneId, null);
+  });
+
+  test("mixed focus list: Shift+TAB leaves a multi-item zone instead of stepping to another item in the same zone", () => {
+    const zones = new Map<string, FocusZone>([
+      ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
+    ]);
+
+    const res = routeKeyWithZones(
+      keyEvent(ZR_KEY_TAB, ZR_MOD_SHIFT),
+      routingCtx({
+        focusedId: "a2",
+        activeZoneId: "z1",
+        focusList: ["before", "a1", "a2", "after"],
+        zones,
+      }),
+    );
+
+    assert.equal(res.nextFocusedId, "before");
+    assert.equal(res.nextZoneId, null);
+  });
+
   test("mixed focus list: TAB from non-zone item can enter zone", () => {
     const zones = new Map<string, FocusZone>([
       ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
@@ -409,6 +447,26 @@ describe("focus zones - routeKeyWithZones", () => {
       routingCtx({
         focusedId: "outside",
         activeZoneId: null,
+        focusList: ["outside", "b1"],
+        zones,
+      }),
+    );
+
+    assert.equal(res.nextFocusedId, "b1");
+    assert.equal(res.nextZoneId, "z2");
+  });
+
+  test("mixed focus list: stale activeZoneId does not skip re-entering the actual next zone", () => {
+    const zones = new Map<string, FocusZone>([
+      ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
+      ["z2", zone({ id: "z2", tabIndex: 1, focusableIds: ["b1"] })],
+    ]);
+
+    const res = routeKeyWithZones(
+      keyEvent(ZR_KEY_TAB),
+      routingCtx({
+        focusedId: "outside",
+        activeZoneId: "z1",
         focusList: ["outside", "b1"],
         zones,
       }),
