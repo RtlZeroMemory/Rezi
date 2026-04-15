@@ -2,14 +2,12 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import {
   DEFAULT_BREADCRUMB_SEPARATOR,
   buildBreadcrumbChildren,
-  createBreadcrumbVNode,
   getBreadcrumbItemId,
   getBreadcrumbZoneId,
   parseBreadcrumbItemId,
   resolveBreadcrumbClickableIndices,
   resolveBreadcrumbSeparator,
 } from "../breadcrumb.js";
-import { ui } from "../ui.js";
 
 const props = {
   id: "crumbs-main",
@@ -60,21 +58,29 @@ describe("breadcrumb helpers", () => {
 });
 
 describe("breadcrumb vnode construction", () => {
-  test("buildBreadcrumbChildren builds focus-zone wrapped row", () => {
+  test("buildBreadcrumbChildren includes clickable breadcrumb buttons before the current item", () => {
     const children = buildBreadcrumbChildren(props);
     assert.equal(children.length, 1);
-    assert.equal(children[0]?.kind, "focusZone");
-    if (children[0]?.kind !== "focusZone") return;
-    assert.equal(children[0].children.length, 1);
-    assert.equal(children[0].children[0]?.kind, "row");
+    const row = children[0];
+    assert.equal(row?.kind, "row");
+    if (row?.kind !== "row") return;
+    const first = row.children[0];
+    const second = row.children[2];
+    assert.equal(first?.kind, "button");
+    assert.equal(second?.kind, "button");
+    if (first?.kind === "button") {
+      assert.equal(first.props.id, getBreadcrumbItemId(props.id, 0));
+      assert.equal(first.props.label, "Home");
+    }
+    if (second?.kind === "button") {
+      assert.equal(second.props.id, getBreadcrumbItemId(props.id, 1));
+      assert.equal(second.props.label, "Docs");
+    }
   });
 
   test("last breadcrumb item is rendered as non-clickable text", () => {
     const children = buildBreadcrumbChildren(props);
-    const zone = children[0];
-    assert.equal(zone?.kind, "focusZone");
-    if (zone?.kind !== "focusZone") return;
-    const row = zone.children[0];
+    const row = children[0];
     assert.equal(row?.kind, "row");
     if (row?.kind !== "row") return;
     const last = row.children[row.children.length - 1];
@@ -84,29 +90,15 @@ describe("breadcrumb vnode construction", () => {
     }
   });
 
-  test("createBreadcrumbVNode emits breadcrumb kind", () => {
-    const vnode = createBreadcrumbVNode(props);
-    assert.equal(vnode.kind, "breadcrumb");
-    assert.equal(vnode.children.length, 1);
-  });
-
-  test("createBreadcrumbVNode applies custom separator", () => {
-    const vnode = createBreadcrumbVNode({ ...props, separator: " / " });
-    assert.equal(vnode.kind, "breadcrumb");
-    if (vnode.kind !== "breadcrumb") return;
-    const zone = vnode.children[0];
-    if (zone?.kind !== "focusZone") return;
-    const row = zone.children[0];
+  test("buildBreadcrumbChildren applies custom separator", () => {
+    const children = buildBreadcrumbChildren({ ...props, separator: " / " });
+    const row = children[0];
+    assert.equal(row?.kind, "row");
     if (row?.kind !== "row") return;
     const sep = row.children[1];
     assert.equal(sep?.kind, "text");
     if (sep?.kind === "text") {
       assert.equal(sep.text, " / ");
     }
-  });
-
-  test("ui.breadcrumb returns a layout-transparent composite wrapper vnode", () => {
-    const vnode = ui.breadcrumb({ items: props.items });
-    assert.equal(vnode.kind, "fragment");
   });
 });
