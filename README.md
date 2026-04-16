@@ -12,8 +12,6 @@ https://github.com/RtlZeroMemory/Zireael
 
 Rezi is aimed at terminal applications that need more than line-oriented output: multi-panel layouts, routed screens, focusable controls, forms, tables, overlays, testing support, and predictable behavior under keyboard and mouse input.
 
-The canonical authoring surface is `ui.*`. JSX is available through `@rezi-ui/jsx`, but the framework does not depend on React.
-
 ## What Rezi Includes
 
 - Layout primitives for rows, columns, grids, panels, spacing, and layered screens
