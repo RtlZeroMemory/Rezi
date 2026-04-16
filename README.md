@@ -1,6 +1,6 @@
 # Rezi
 
-Rezi is a TypeScript framework for building terminal user interfaces on Node.js and Bun. It provides a declarative widget API, deterministic input and rendering behavior, and a native-backed rendering pipeline through the native Zireael engine written in C. 
+Rezi is a TypeScript framework for building terminal user interfaces on Node.js and Bun. It provides a declarative widget API, deterministic input and rendering behavior, and a native-backed rendering pipeline through the Zireael engine written in C. 
 
 https://github.com/RtlZeroMemory/Zireael
 
