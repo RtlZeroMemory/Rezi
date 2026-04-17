@@ -102,15 +102,7 @@
       "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
-    "packages/create-rezi/templates/animation-lab": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
-    },
     "packages/create-rezi/templates/cli-tool": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/create-rezi/templates/dashboard": {
       "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
@@ -119,10 +111,6 @@
       "project": ["src/**/*.ts"]
     },
     "packages/create-rezi/templates/starship": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/create-rezi/templates/stress-test": {
       "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     }

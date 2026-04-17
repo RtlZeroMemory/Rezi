@@ -17,7 +17,7 @@ import type { VNode } from "../../widgets/types.js";
 import { renderShadow, resolveBoxShadowConfig } from "../shadow.js";
 import { asTextStyle, getButtonLabelStyle } from "../styles.js";
 import { readBoxBorder, renderBoxBorder } from "./boxBorder.js";
-import { readIntNonNegative, resolveMarginFromProps, resolveSpacingFromProps } from "./spacing.js";
+import { readSpacingValue, resolveMarginFromProps, resolveSpacingFromProps } from "./spacing.js";
 import { mergeTextStyle, shouldFillForStyleOverride } from "./textStyle.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 import { getColorTokens } from "./themeTokens.js";
@@ -275,7 +275,7 @@ function measureVNodeSimpleHeightInternal(vnode: VNode, w: number, depth: number
       };
       const spacing = resolveSpacingFromProps(props);
       const margin = resolveMarginFromProps(props);
-      const gap = readIntNonNegative(props.gap, 0);
+      const gap = readSpacingValue(props.gap, 0);
       const stackW = Math.max(0, w - margin.left - margin.right);
       const innerW = Math.max(0, stackW - spacing.left - spacing.right);
       const children = vnode.children.filter((c): c is VNode => c !== null && c !== undefined);
@@ -706,7 +706,7 @@ export function renderVNodeSimple(
       };
       const spacing = resolveSpacingFromProps(props);
       const margin = resolveMarginFromProps(props);
-      const gap = readIntNonNegative(props.gap, 0);
+      const gap = readSpacingValue(props.gap, 0);
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const stackX = x + margin.left;

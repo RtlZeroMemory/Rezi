@@ -272,7 +272,7 @@ await debug.enable({
 | `createThemeDefinition` | Custom theme creation |
 | `ColorTokens` | Theme token types |
 | `recipe` | Design-system recipe namespace (`button`, `input`, `tabs`, `accordion`, `breadcrumb`, `pagination`, `kbd`, `dropdown`, `tree`, `sidebar`, `toolbar`, etc.) |
-| `WidgetContext.useTheme()` | Composite hook to access current `ColorTokens` (or `null` for legacy themes) |
+| `WidgetContext.useTheme()` | Composite hook to access current `ColorTokens` |
 
 ### Layout
 

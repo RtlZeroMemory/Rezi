@@ -31,12 +31,10 @@ async function main() {
   const galleryScenes = await import(join(ROOT, "examples/gallery/dist/scenes.js"));
 
   const {
-    createTestRenderer,
     captureSnapshot,
     serializeSnapshot,
     parseSnapshot,
     diffSnapshots,
-    coerceToLegacyTheme,
     darkTheme,
     lightTheme,
     nordTheme,
@@ -101,12 +99,11 @@ async function main() {
       const themeObj = themes[themeName];
       if (!themeObj) continue;
 
-      const legacyTheme = coerceToLegacyTheme(themeObj);
       const viewport = { cols: 80, rows: 40 };
       const snapshot = captureSnapshot(
         scene.name,
         scene.render(),
-        { viewport, theme: legacyTheme },
+        { viewport, theme: themeObj },
         themeName,
       );
 

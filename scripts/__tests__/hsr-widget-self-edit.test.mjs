@@ -12,8 +12,8 @@ import {
 } from "../hsr/widget-view-self-edit.mjs";
 
 describe("widget-view self-edit helper", () => {
-  test("default self-edit banner is showcase-friendly placeholder", () => {
-    assert.equal(DEFAULT_SELF_EDIT_BANNER, "placeholder");
+  test("default self-edit banner uses a stable widget-lab label", () => {
+    assert.equal(DEFAULT_SELF_EDIT_BANNER, "widget lab banner");
   });
 
   test("sanitizeSelfEditBanner normalizes whitespace and enforces fallback", () => {

@@ -24,7 +24,7 @@ that child into a column axis. The child keeps its natural layout behavior
 (for example, a `row` stays horizontal, `grid` stays grid, nested stacks
 preserve their own axis rules).
 
-When you pass multiple direct children, Rezi currently uses a legacy column
+When you pass multiple direct children, Rezi currently uses an implicit column
 fallback. Keep explicit layout wrappers around multi-child zones so structure
 stays obvious and stable.
 

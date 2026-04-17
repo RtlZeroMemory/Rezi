@@ -9,8 +9,8 @@ type ThemeSpec = Readonly<{
 }>;
 
 export const PRODUCT_NAME = "Regression Dashboard";
-export const TEMPLATE_LABEL = "dashboard";
-export const PRODUCT_TAGLINE = "Deterministic incident dashboard starter";
+export const TEMPLATE_LABEL = "regression";
+export const PRODUCT_TAGLINE = "Deterministic incident-response validation app";
 export const DEFAULT_THEME_NAME: ThemeName = "nord";
 
 const THEME_ORDER: readonly ThemeName[] = Object.freeze(["nord", "dark", "light"]);

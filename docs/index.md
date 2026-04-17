@@ -83,8 +83,8 @@ Rezi is a code-first terminal UI framework for Node.js and Bun. It uses a declar
 
 ## Example Surfaces
 
-- Curated public examples: `examples/hello-counter`, `examples/raw-draw-demo`, `examples/gallery`
-- Internal/reference example: `examples/regression-dashboard`
+- Repository examples: `examples/hello-counter`, `examples/raw-draw-demo`, `examples/gallery`
+- Validation app: `examples/regression-dashboard`
 
 ## Core Concepts
 

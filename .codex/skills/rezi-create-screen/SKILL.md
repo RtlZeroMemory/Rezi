@@ -22,7 +22,7 @@ Use this skill when:
 - `packages/core/src/widgets/composition.ts` — `defineWidget()` and animation hooks
 - `packages/core/src/router/` — router and route definitions
 - `packages/core/src/keybindings/` — keybinding system
-- `packages/create-rezi/templates/animation-lab/` — canonical animation screen pattern
+- `packages/create-rezi/templates/starship/` — large-screen routing and animation patterns
 - `docs/guide/widget-authoring.md` — design system integration patterns
 
 ## Steps
@@ -33,10 +33,14 @@ Use this skill when:
    import type { AppState } from "../state.js";
 
    export function MyScreen(state: AppState) {
-     return ui.column({ gap: 1 }, [
-       ui.text("Screen Title", { style: { bold: true } }),
-       // screen content
-     ]);
+     return ui.page({
+       p: 1,
+       gap: 1,
+       header: ui.header({ title: "Screen Title" }),
+       body: ui.column({ gap: 1 }, [
+         // screen content
+       ]),
+     });
    }
    ```
 
@@ -50,7 +54,7 @@ Use this skill when:
    })
    ```
 
-2. **Use `ui.column()` or `ui.row()`** as the root container
+2. **Use `ui.page()` or `ui.appShell()`** as the screen root
 
 3. **If the screen needs motion**, prefer declarative hooks inside `defineWidget`:
    ```typescript

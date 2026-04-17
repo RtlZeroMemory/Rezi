@@ -36,10 +36,6 @@ export function readOptionalSpacingValue(v: unknown): number | undefined {
   return resolved;
 }
 
-// Legacy aliases for backwards compatibility
-export const readIntNonNegative = readSpacingValue;
-export const readOptionalIntNonNegative = readOptionalSpacingValue;
-
 export function resolveSpacingFromProps(props: {
   pad?: unknown;
   p?: unknown;

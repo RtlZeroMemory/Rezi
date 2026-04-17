@@ -118,7 +118,7 @@ nav:
       - Layout: guide/layout.md
       - Layout Decision Tree: guide/layout-decision-tree.md
       - Constraints: guide/constraints.md
-      - Constraints Instead of Manual Math: guide/migration-from-manual-layout-math.md
+      - Constraint Patterns: guide/constraint-patterns.md
       - Constraint Recipes: guide/constraint-recipes.md
       - Constraint Demos: guide/constraint-demos.md
       - Styling with Constraints: guide/styling-with-constraints.md
@@ -220,7 +220,7 @@ nav:
           - Empty: widgets/empty.md
   - Styling:
       - Overview: styling/index.md
-      - Design System Defaults: migration/beautiful-defaults.md
+      - Default Recipe Behavior: styling/defaults.md
       - Design System: design-system.md
       - Style Props: styling/style-props.md
       - Theme: styling/theme.md

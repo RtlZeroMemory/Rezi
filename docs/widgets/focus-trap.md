@@ -24,12 +24,12 @@ ui.focusTrap(
 `focusTrap` is layout-transparent when it wraps a single child.
 That child keeps its native layout semantics (`row`, `column`, `grid`, etc.).
 
-For legacy multi-child usage, direct children fall back to an implicit column layout.
+For multi-child usage, direct children fall back to an implicit column layout.
 Prefer an explicit container inside the trap when you need more than one child:
 
 ```typescript
 ui.focusTrap(
-  { id: "trap-legacy", active: true },
+  { id: "trap-example", active: true },
   [
     ui.button({ id: "a", label: "A" }),
     ui.button({ id: "b", label: "B" }),

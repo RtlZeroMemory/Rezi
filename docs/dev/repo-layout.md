@@ -16,8 +16,10 @@ Rezi/
     create-rezi/    create-rezi CLI
     bench/          @rezi-ui/bench (benchmark suite)
   examples/
+    gallery/
     hello-counter/
     raw-draw-demo/
+    regression-dashboard/
   docs/
   scripts/
   vendor/
@@ -120,6 +122,14 @@ basic widget composition.
 
 Demonstrates the low-level draw API (`app.draw()`) for direct terminal drawing
 without the widget system.
+
+### gallery
+
+Widget gallery and scene library used for manual inspection and snapshot coverage.
+
+### regression-dashboard
+
+Validation app used to exercise rendering, layout, and interaction behavior under a larger workload.
 
 ## docs/
 

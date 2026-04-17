@@ -50,7 +50,7 @@ Run this checklist first:
 
 1. `packages/core/src/index.ts`: public export surface.
 2. `packages/core/src/widgets/ui.ts`: canonical widget factory API.
-3. `packages/core/src/widgets/types.ts`: prop contracts and callback signatures.
+3. `packages/core/src/widgets/types/`: prop contracts and callback signatures.
 4. `packages/core/src/widgets/composition.ts`: composition API and hook context.
 5. `packages/create-rezi/templates/`: reference implementations.
 6. `packages/core/src/**/__tests__/`: expected behavior and edge cases.
@@ -64,10 +64,10 @@ key/mouse input -> router -> wheel router (nearest scroll target)
 ```
 
 Key files for this path:
-- `packages/core/src/runtime/router/router.ts`
+- `packages/core/src/runtime/router/key.ts`
+- `packages/core/src/runtime/router/mouse.ts`
 - `packages/core/src/runtime/router/wheel.ts`
-- `packages/core/src/runtime/router/mouseRouting.ts`
-- `packages/core/src/runtime/router/keyboardRouting.ts`
+- `packages/core/src/runtime/router/zones.ts`
 
 ## Agent Coordination Playbook
 
@@ -135,7 +135,7 @@ See `CLAUDE.md` § Layout Engine Baseline.
 ### Safe Modification Zones
 
 - `packages/core/src/widgets/ui.ts`
-- `packages/core/src/widgets/types.ts`
+- `packages/core/src/widgets/types/`
 - `packages/core/src/widgets/protocol.ts`
 - `packages/create-rezi/templates/`
 - `docs/`

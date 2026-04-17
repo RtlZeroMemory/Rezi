@@ -307,13 +307,12 @@ Access the current theme's semantic design tokens.
 **Signature:**
 
 ```typescript
-ctx.useTheme(): ColorTokens | null
+ctx.useTheme(): ColorTokens
 ```
 
 **Description:**
 
-- Returns `ColorTokens` when semantic tokens are available for the active theme.
-- Returns `null` for legacy themes that do not expose semantic token slots.
+- Returns the resolved semantic color tokens for the active theme.
 - Intended for recipe-driven custom widgets built with `defineWidget(...)`.
 
 **Example:**
@@ -323,11 +322,8 @@ import { defineWidget, recipe, ui } from "@rezi-ui/core";
 
 const ThemedCard = defineWidget<{ title: string; key?: string }>((props, ctx) => {
   const tokens = ctx.useTheme();
-  if (tokens) {
-    const surface = recipe.surface(tokens, { elevation: 1 });
-    return ui.box({ border: surface.border, style: surface.bg }, [ui.text(props.title)]);
-  }
-  return ui.panel(props.title, [ui.text("legacy theme fallback")]);
+  const surface = recipe.surface(tokens, { elevation: 1 });
+  return ui.box({ border: surface.border, style: surface.bg }, [ui.text(props.title)]);
 });
 ```
 

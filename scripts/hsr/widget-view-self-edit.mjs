@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
-export const DEFAULT_SELF_EDIT_BANNER = "placeholder";
+export const DEFAULT_SELF_EDIT_BANNER = "widget lab banner";
 
 const SELF_EDIT_BANNER_DECLARATION = /^export const SELF_EDIT_BANNER = .*;$/m;
 
