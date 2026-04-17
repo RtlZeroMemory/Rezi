@@ -79,7 +79,9 @@
   "files": {
     "ignore": [
       ".venv-docs/**",
+      ".artifacts/**",
       "out/**",
+      "benchmarks/local-*/**",
       "**/dist/**",
       "**/node_modules/**",
       "**/target/**",

@@ -22,7 +22,7 @@ Repository examples:
 - `examples/hello-counter`
 - `examples/raw-draw-demo`
 - `examples/gallery`
-- `examples/regression-dashboard`
+- `examples/regression-dashboard` (validation surface for layout/render/input regressions)
 
 ## Canonical References
 
@@ -176,4 +176,4 @@ Project-level skills are mirrored for Claude and Codex.
 | Perf Profiling | `.claude/skills/rezi-perf-profiling/` | `.codex/skills/rezi-perf-profiling/` |
 | Routing | `.claude/skills/rezi-routing/` | `.codex/skills/rezi-routing/` |
 
-Keep these files aligned when the repo structure or recommended workflows change.
+Keep these files aligned, including YAML frontmatter and path examples, when the repo structure or recommended workflows change.

@@ -43,12 +43,12 @@ Each template includes example tests for reducer logic, widget rendering, and ke
 
 The public templates ship with hot state-preserving reload in `npm run dev` / `bun run dev`:
 
-- the dev script runs `tsx src/main.ts --hsr`
+- the dev script runs `tsx watch src/main.ts --hsr`
 - source changes hot-swap through `createNodeApp({ hotReload: ... })`
 - app state, focus, and stable widget local state are preserved across edits
 
 ## Next steps
 
 - [Quickstart](quickstart.md) for manual setup.
-- [Examples](examples.md) for repository examples and their public/internal split.
+- [Examples](examples.md) for repository example apps that go beyond the starter templates.
 - [Animation Guide](../guide/animation.md) for transition/spring/sequence/stagger usage patterns.

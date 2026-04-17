@@ -34,4 +34,4 @@ npm i @rezi-ui/node
 bun add @rezi-ui/node
 ```
 
-Docs: `https://rezitui.dev/docs`
+Docs: `https://rezitui.dev/packages/node/`

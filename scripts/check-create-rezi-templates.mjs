@@ -68,6 +68,16 @@ const HOTSPOT_VIEWPORT_MATH = Object.freeze([
     regex: /Math\.(?:floor|ceil|min|max)\([^)\n]*(?:viewport|cols|rows)/,
   }),
 ]);
+const TEMPLATE_IGNORE_FILES = Object.freeze([
+  Object.freeze({
+    publishName: "gitignore",
+    scaffoldName: ".gitignore",
+  }),
+  Object.freeze({
+    publishName: "npmignore",
+    scaffoldName: ".npmignore",
+  }),
+]);
 
 function fail(message) {
   process.stderr.write(`check-create-rezi-templates: FAIL\n${message}\n`);
@@ -123,6 +133,49 @@ function runInstalledSmoke(projectDir, templateKey) {
   );
   runCommand(NPM_CLI, ["run", "build"], projectDir, `Template ${templateKey} build`);
   runCommand(NPM_CLI, ["run", "test"], projectDir, `Template ${templateKey} test`);
+}
+
+function ensureTemplateIgnoreFiles(templateDir, templateKey) {
+  const gitignorePath = join(templateDir, "gitignore");
+  if (!existsSync(gitignorePath)) {
+    fail(`Template ${templateKey} must include a publish-safe gitignore file.`);
+  }
+
+  for (const ignoreFile of TEMPLATE_IGNORE_FILES) {
+    const hiddenPath = join(templateDir, ignoreFile.scaffoldName);
+    if (existsSync(hiddenPath)) {
+      fail(
+        [
+          `Template ${templateKey} stores ${ignoreFile.scaffoldName} directly in the template tree.`,
+          `Use ${ignoreFile.publishName} so npm publish ships the file and scaffolding can restore ${ignoreFile.scaffoldName}.`,
+        ].join("\n"),
+      );
+    }
+  }
+}
+
+function ensureScaffoldedIgnoreFiles(projectDir, templateDir, templateKey) {
+  for (const ignoreFile of TEMPLATE_IGNORE_FILES) {
+    const templatePath = join(templateDir, ignoreFile.publishName);
+    const scaffoldedPath = join(projectDir, ignoreFile.scaffoldName);
+    const leakedTemplatePath = join(projectDir, ignoreFile.publishName);
+
+    if (!existsSync(templatePath)) continue;
+    if (!existsSync(scaffoldedPath)) {
+      fail(`Template ${templateKey} did not scaffold ${ignoreFile.scaffoldName}.`);
+    }
+    if (existsSync(leakedTemplatePath)) {
+      fail(`Template ${templateKey} leaked ${ignoreFile.publishName} into the scaffolded project.`);
+    }
+
+    const expected = readFileSync(templatePath, "utf8");
+    const actual = readFileSync(scaffoldedPath, "utf8");
+    if (actual !== expected) {
+      fail(
+        `Template ${templateKey} scaffolded ${ignoreFile.scaffoldName} with unexpected content.`,
+      );
+    }
+  }
 }
 
 function collectFilesRecursiveSorted(dir, predicate) {
@@ -296,7 +349,7 @@ const templates = scaffoldModule.TEMPLATE_DEFINITIONS;
 if (!Array.isArray(templates) || templates.length === 0) {
   fail("TEMPLATE_DEFINITIONS is missing or empty in create-rezi scaffold output.");
 }
-if (INSTALL_SMOKE_ENABLED && typeof scaffoldModule.createProject !== "function") {
+if (typeof scaffoldModule.createProject !== "function") {
   fail("createProject export is missing or invalid in create-rezi scaffold output.");
 }
 const templateReziVersion = expectedTemplateReziVersion();
@@ -338,6 +391,9 @@ for (const template of templates) {
   if (typeof scripts.start !== "string" || typeof scripts.dev !== "string") {
     fail(`Template ${template.key} package.json must include start/dev scripts.`);
   }
+  if (!scripts.dev.includes("tsx watch ") || !scripts.dev.includes("--hsr")) {
+    fail(`Template ${template.key} dev script must run tsx watch with --hsr.`);
+  }
   if (typeof scripts.build !== "string") {
     fail(`Template ${template.key} package.json must include a build script.`);
   }
@@ -371,19 +427,21 @@ for (const template of templates) {
   }
 
   ensureNoLegacyLayoutPatterns(templateDir, template.key);
+  ensureTemplateIgnoreFiles(templateDir, template.key);
 
   const tempProject = mkdtempSync(join(tmpdir(), `rezi-template-smoke-${template.key}-`));
   try {
     runTsc(tempProject, template.dir, "build");
     runTsc(tempProject, template.dir, "typecheck");
+    const scaffoldedProject = join(tempProject, "app");
+    await scaffoldModule.createProject({
+      targetDir: scaffoldedProject,
+      templateKey: template.key,
+      packageName: `rezi-template-smoke-${template.key}`,
+      displayName: `Template Smoke ${template.label}`,
+    });
+    ensureScaffoldedIgnoreFiles(scaffoldedProject, templateDir, template.key);
     if (INSTALL_SMOKE_ENABLED) {
-      const scaffoldedProject = join(tempProject, "app");
-      await scaffoldModule.createProject({
-        targetDir: scaffoldedProject,
-        templateKey: template.key,
-        packageName: `rezi-template-smoke-${template.key}`,
-        displayName: `Template Smoke ${template.label}`,
-      });
       runInstalledSmoke(scaffoldedProject, template.key);
     }
   } finally {

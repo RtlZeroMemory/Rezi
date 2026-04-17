@@ -60,8 +60,10 @@ npm run build
 
 This runs `tsc -b` (TypeScript project build mode) across the root project
 references: `packages/create-rezi`, `packages/core`, `packages/node`,
-`packages/testkit`, `packages/jsx`, and `examples/*`. Packages like
-`@rezi-ui/native` and `@rezi-ui/bench` are built separately.
+`packages/testkit`, `packages/jsx`, and the current example apps
+(`examples/gallery`, `examples/hello-counter`, `examples/raw-draw-demo`, and
+`examples/regression-dashboard`). Packages like `@rezi-ui/native` and
+`@rezi-ui/bench` are built separately.
 
 TypeScript build mode is incremental, so subsequent builds after the first are
 fast -- only changed files and their dependents are recompiled.
@@ -74,8 +76,10 @@ packages/node/dist/
 packages/jsx/dist/
 packages/testkit/dist/
 packages/create-rezi/dist/
+examples/gallery/dist/
 examples/hello-counter/dist/
 examples/raw-draw-demo/dist/
+examples/regression-dashboard/dist/
 ```
 
 ### Incremental Rebuilds
@@ -101,6 +105,33 @@ npm run typecheck
 This runs `tsc -b --pretty false` for the same root project references with
 colorized output disabled for easier log parsing. It produces the same `.js`
 and `.d.ts` output as `npm run build`.
+
+For the full CI project graph, including `packages/bench`, run:
+
+```bash
+npm run typecheck:ci
+```
+
+`typecheck:ci` uses `tsconfig.ci.json`, which extends the root graph with the
+benchmark package for release/CI parity checks.
+
+## Benchmark Package Build
+
+The benchmark runner is compiled outside the root `tsc -b` graph. Build it
+explicitly with:
+
+```bash
+npm run bench:build
+```
+
+This runs the `@rezi-ui/bench` project-reference graph and writes the runner to
+`packages/bench/dist/`.
+
+The root benchmark entry points (`npm run bench`, `npm run bench:rezi`,
+`npm run bench:ci`, `npm run bench:terminal:rigorous`, and
+`npm run bench:all:rigorous`) invoke this automatically via `pre*` scripts, so
+they work from a clean checkout after `npm ci` without a separate manual
+`npx tsc -b packages/bench`.
 
 ## Native Addon Build
 
@@ -196,7 +227,7 @@ git submodule update --init --recursive
 If TypeScript reports errors that do not match the source, delete build caches:
 
 ```bash
-rm -rf packages/*/dist packages/*/.tsbuildinfo
+rm -rf packages/*/dist examples/*/dist packages/*/tsconfig.tsbuildinfo examples/*/tsconfig.tsbuildinfo
 npm run build
 ```
 

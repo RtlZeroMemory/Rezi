@@ -1,9 +1,10 @@
 # Perf Regressions
 
-The CI performance gate protects the terminal rendering differentiators from silent regressions.
+The CI perf regression advisory job protects the terminal rendering
+differentiators from silent regressions.
 
 CI workflow: `.github/workflows/ci.yml`  
-Job name: `perf regression gate`
+Job name: `perf regression advisory`
 
 ## PR Gate Scope
 
@@ -30,17 +31,23 @@ Coverage guardrail:
 
 ## Local Commands
 
-Build first (bench runner lives in `packages/bench/dist`):
+From a clean checkout, the root bench wrapper builds `@rezi-ui/bench` and its
+TypeScript references automatically:
 
 ```bash
 npm ci
-npm run build
+npm run bench:ci -- --output-dir .artifacts/bench/ci-local
 ```
 
-Run the reduced profile:
+This reduced CI profile uses `io=stub`, so it does not require
+`npm run build:native`.
+
+If you bypass the npm wrapper and invoke `node scripts/run-bench-ci.mjs`
+directly, build the bench package first:
 
 ```bash
-npm run bench:ci -- --output-dir .artifacts/bench/ci-local
+npm run bench:build
+node scripts/run-bench-ci.mjs --output-dir .artifacts/bench/ci-local
 ```
 
 Compare to baseline:
@@ -53,6 +60,8 @@ npm run bench:ci:compare -- \
   --report-json .artifacts/bench/ci-local/compare.json \
   --report-md .artifacts/bench/ci-local/compare.md
 ```
+
+Without `--output-dir`, the profile writes its reports to `out/bench-ci/`.
 
 ## Threshold Model
 

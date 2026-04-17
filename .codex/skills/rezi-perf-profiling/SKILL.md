@@ -1,6 +1,11 @@
 ---
 name: rezi-perf-profiling
 description: Profile and optimize Rezi app performance. Use when app feels slow, frames drop, or render phases take too long.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Bash(REZI_PERF=1 *), Bash(npx tsx packages/bench/*)
+argument-hint: "[performance-concern]"
+metadata:
+  short-description: Performance profiling
 ---
 
 ## When to use

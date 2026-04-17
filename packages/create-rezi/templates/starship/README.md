@@ -105,6 +105,9 @@ npm run start
 npm run dev
 ```
 
+`npm run dev` runs `tsx watch src/main.ts --hsr`, so view and route module edits
+reload through `createNodeApp({ hotReload: ... })` while preserving app state.
+
 ## Tests
 
 ```bash

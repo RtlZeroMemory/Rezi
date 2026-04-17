@@ -1,11 +1,16 @@
 # Examples
 
-This page lists the example apps that ship in the repository.
+This page lists the source examples that ship in the repository.
+
+## Example apps
 
 - `examples/hello-counter`: Minimal state, view, and button flow using the Node backend.
 - `examples/raw-draw-demo`: Low-level `draw()` rendering example.
 - `examples/gallery`: Widget gallery and scene library for widget demos.
-- `examples/regression-dashboard`: Validation app used to exercise layout, rendering, and interaction behavior.
+
+## Validation surface
+
+- `examples/regression-dashboard`: Dashboard used to exercise layout, rendering, focus, and interaction behavior after framework changes. It is not intended as a first Rezi example; start with `npm create rezi`, `examples/hello-counter`, or `examples/gallery` when learning the framework.
 
 ## Run from source
 
