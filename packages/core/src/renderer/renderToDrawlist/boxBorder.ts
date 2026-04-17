@@ -11,7 +11,6 @@ import { isVisibleRect } from "./indices.js";
 import { clampNonNegative } from "./spacing.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 
-// Re-export BorderStyle for backwards compatibility
 export type { BorderStyle } from "../boxGlyphs.js";
 
 export type BorderSideFlags = Readonly<{

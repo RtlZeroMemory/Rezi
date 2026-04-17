@@ -158,9 +158,9 @@ ui.column({ gap: 1 }, [
 
 These diagnostics are deterministic and should be treated as actionable failures, not soft warnings.
 
-## Migration Patterns
+## Common Patterns
 
-| Legacy pattern | Use now |
+| Earlier pattern | Use now |
 |---|---|
 | `width: "50%"` | `width: expr("parent.w * 0.5")` |
 | `width: { sm: 10, md: 20, lg: 30 }` | `width: expr("steps(viewport.w, 80: 10, 120: 20, 160: 30)")` or `fluid(10, 30)` |

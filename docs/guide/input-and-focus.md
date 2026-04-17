@@ -107,8 +107,7 @@ Trap activation focus rules:
 ### Focus indicator styling
 
 When a `ThemeDefinition` preset is active, focus indicators are DS-driven and use
-the `focus.ring` token color. In legacy themes without semantic focus tokens,
-focus falls back to underline + bold behavior.
+the `focus.ring` token color together with underline + bold behavior.
 
 ## Semantic Focus Labels
 

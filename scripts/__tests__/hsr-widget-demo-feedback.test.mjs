@@ -116,7 +116,7 @@ describe("widget demo feedback helper", () => {
     });
 
     assert.equal(result.status.level, "success");
-    assert.match(result.status.message, /placeholder/);
+    assert.match(result.status.message, /widget lab banner/);
     assert.equal(result.modal, null);
     assert.equal(result.activity, "No file change detected.");
   });

@@ -4,7 +4,6 @@ Rezi theming is semantic-only.
 
 The public theme contract is `ThemeDefinition`. Applications pass a
 `ThemeDefinition` to `createApp(...)`, `createNodeApp(...)`, and `app.setTheme(...)`.
-There is no separate public legacy `Theme` shape anymore.
 
 ## Built-in presets
 

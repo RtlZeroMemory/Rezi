@@ -86,7 +86,7 @@ ui.row({ width: 40, gap: 0 }, [
 
 ## Notes
 
-- Backward compatibility: when `flexShrink`/`flexBasis` are not used, stacks preserve legacy allocation behavior.
+- Default sizing behavior: when `flexShrink`/`flexBasis` are not used, stacks preserve the standard allocation path.
 - `flexShrink: 0` means a child will not shrink during overflow.
 - In wrap and non-wrap constraint paths, cross-axis feedback is bounded to at most two measurement passes per child to avoid loops while handling wrapped-content reflow.
 - Absolute children (`position: "absolute"`) are laid out after in-flow children and do not consume stack main-axis space.

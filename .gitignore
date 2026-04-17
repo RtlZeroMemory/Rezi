@@ -139,10 +139,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Local AI assistant settings/state
-.claude/
-.codex/
-
 # Docs (MkDocs)
 .venv-docs/
 

@@ -67,11 +67,6 @@ const HOTSPOT_VIEWPORT_MATH = Object.freeze([
     relativeFile: "src/helpers/layout.ts",
     regex: /Math\.(?:floor|ceil|min|max)\([^)\n]*(?:viewport|cols|rows)/,
   }),
-  Object.freeze({
-    templateKey: "animation-lab",
-    relativeFile: "src/helpers/state.ts",
-    regex: /Math\.(?:floor|ceil|min|max)\([^)\n]*(?:viewport|cols|rows)/,
-  }),
 ]);
 
 function fail(message) {

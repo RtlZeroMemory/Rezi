@@ -1,15 +1,10 @@
 # Examples
 
-This page separates public examples from internal or reference apps.
-
-## Curated public examples
+This page lists the example apps that ship in the repository.
 
 - `examples/hello-counter`: Minimal state, view, and button flow using the Node backend.
 - `examples/raw-draw-demo`: Low-level `draw()` rendering example.
 - `examples/gallery`: Widget gallery and scene library for widget demos.
-
-## Internal or reference examples
-
 - `examples/regression-dashboard`: Validation app used to exercise layout, rendering, and interaction behavior.
 
 ## Run from source
@@ -25,7 +20,7 @@ npm run build
 npm run build:native
 ```
 
-Run the public examples:
+Run the examples:
 
 ```bash
 node examples/hello-counter/dist/index.js

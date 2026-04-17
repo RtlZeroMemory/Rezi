@@ -181,9 +181,9 @@ function MyImageWidget(caps: TerminalCaps): VNode {
 Use `createTestRenderer` for deterministic testing:
 
 ```typescript
-import { createTestRenderer, coerceToLegacyTheme, darkTheme, ui } from "@rezi-ui/core";
+import { createTestRenderer, darkTheme, ui } from "@rezi-ui/core";
 
-const theme = coerceToLegacyTheme(darkTheme);
+const theme = darkTheme;
 const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 }, theme });
 
 const result = renderer.render(MyWidget({ title: "Test" }));

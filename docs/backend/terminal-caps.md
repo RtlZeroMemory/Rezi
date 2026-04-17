@@ -15,7 +15,7 @@ The Zireael engine detects terminal capabilities at startup and surfaces them to
 
 `supportsMouse` indicates whether the terminal can report mouse events (clicks, scroll wheel, movement, drag). When `true`, Rezi automatically enables mouse tracking and routes mouse events to widgets.
 
-Most modern terminals support mouse tracking, including iTerm2, Alacritty, kitty, WezTerm, Windows Terminal, GNOME Terminal, and Konsole. Some legacy terminals or minimal configurations may not.
+Most modern terminals support mouse tracking, including iTerm2, Alacritty, kitty, WezTerm, Windows Terminal, GNOME Terminal, and Konsole. Some older terminals or minimal configurations may not.
 
 When `supportsMouse` is `false`, Rezi operates in keyboard-only mode. No special handling is needed — all interactive widgets work with keyboard navigation.
 
@@ -31,4 +31,3 @@ See also:
 
 - `terminalCaps` export in `@rezi-ui/core`
 - [Mouse Support guide](../guide/mouse-support.md)
-

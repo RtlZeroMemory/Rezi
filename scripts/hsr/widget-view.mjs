@@ -2,7 +2,7 @@ import { rgb, ui } from "@rezi-ui/core";
 import { clampCodeCursor, joinCodeLines, splitCodeDraft } from "./widget-code-editor-state.mjs";
 import { normalizeViewport, resolveWidgetDemoLayout } from "./widget-layout.mjs";
 
-export const SELF_EDIT_BANNER = "placeholder";
+export const SELF_EDIT_BANNER = "widget lab banner";
 
 const CODE_EDITOR_ID = "self-edit-code";
 const SAVE_BUTTON_ID = "save-view-file";

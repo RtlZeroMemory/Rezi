@@ -81,7 +81,7 @@ test("createProject scaffolds each template with substitutions", async () => {
       appNameSource = await readFile(themePath, "utf8");
       appNamePath = themePath;
     } catch {
-      // Fallback to main.ts for legacy templates.
+      // Fallback to main.ts for templates that inline the display name.
     }
 
     assert.ok(

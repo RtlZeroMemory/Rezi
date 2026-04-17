@@ -24,10 +24,7 @@ In a terminal, “focus ring” usually means an *outline* or a *high-contrast m
 
 Theme path behavior:
 
-- With `ThemeDefinition` semantics available, focus uses `focus.ring` token color
-  in addition to underline + bold.
-- With legacy `Theme` only, focus falls back to underline + bold (no token-color
-  focus accent).
+- Focus uses the active theme's `focus.ring` token color in addition to underline + bold.
 
 `focus.bg` may be used for subtle focused-surface emphasis where widget renderers
 support a background hint.

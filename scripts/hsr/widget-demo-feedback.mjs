@@ -60,7 +60,7 @@ export function closeModalState() {
 }
 
 export function buildSavePresentation({ changed, reloaded, banner, saveCount, nowMs }) {
-  const safeBanner = typeof banner === "string" && banner.length > 0 ? banner : "placeholder";
+  const safeBanner = typeof banner === "string" && banner.length > 0 ? banner : "widget lab banner";
   const safeCount =
     typeof saveCount === "number" && Number.isFinite(saveCount)
       ? Math.max(0, Math.floor(saveCount))

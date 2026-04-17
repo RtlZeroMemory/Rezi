@@ -4,7 +4,7 @@ Rezi uses a **cell-based** layout system: all sizes and coordinates are measured
 
 This page covers the core layout primitives and the props that control sizing and positioning.
 
-For full constraint DSL syntax, diagnostics, and migration patterns, see
+For full constraint DSL syntax, diagnostics, and common constraint patterns, see
 [Constraints Guide](constraints.md).
 
 ## Cell coordinates
@@ -196,7 +196,7 @@ ui.column({ gap: 1 }, [
 Rules summary:
 
 - `m/mx/my/mt/mr/mb/ml` accept signed int32 numbers (and spacing keys).
-- `p/px/py/pt/pr/pb/pl`, legacy `pad`, and `gap` must stay non-negative.
+- `p/px/py/pt/pr/pb/pl`, deprecated `pad`, and `gap` must stay non-negative.
 - Computed `w/h` are always clamped to non-negative values.
 - Computed `x/y` can be negative when margins pull widgets outward.
 
@@ -493,7 +493,7 @@ Clipping semantics (current behavior):
 
 - Rendering clips children to the container content rect (after border/padding).
 - `"scroll"` additionally clips to a reduced scroll viewport and applies `scrollX`/`scrollY` offsets.
-- Hit-testing keeps legacy `"visible"` overlap behavior (container layout-rect clip), while `"hidden"` and `"scroll"` use stricter content/viewport clipping.
+- Hit-testing keeps the current `"visible"` overlap behavior (container layout-rect clip), while `"hidden"` and `"scroll"` use stricter content/viewport clipping.
 
 Scrollbar occupancy in `"scroll"` mode:
 

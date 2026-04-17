@@ -34,14 +34,14 @@ Use this skill when:
        },
      },
      {
-       id: "dashboard",
+       id: "operations",
        screen: (_params, context) => ui.column([
          Header(context.state),
          context.outlet,
        ]),
        children: [
-         { id: "dashboard.overview", screen: (_params, context) => OverviewPanel(context.state) },
-         { id: "dashboard.stats", screen: (_params, context) => StatsPanel(context.state) },
+         { id: "operations.overview", screen: (_params, context) => OverviewPanel(context.state) },
+         { id: "operations.logs", screen: (_params, context) => LogsPanel(context.state) },
        ],
      },
    ] as const;
@@ -55,7 +55,7 @@ Use this skill when:
 3. **Navigate programmatically**:
    ```typescript
    app.router.navigate("settings");
-   app.router.navigate("dashboard.overview");
+   app.router.navigate("operations.overview");
    ```
 
 4. **Nested routes** render via `context.outlet` in the parent view
