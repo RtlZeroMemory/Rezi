@@ -149,7 +149,7 @@
     {
       "name": "link",
       "requiredProps": ["url"],
-      "commonProps": ["label", "id", "disabled", "style", "onPress", "key"],
+      "commonProps": ["label", "id", "disabled", "style", "onPress"],
       "example": "ui.link({ url: 'https://example.com', label: 'Open' })"
     },
     {

@@ -5,10 +5,10 @@ Text link widget with optional focus/press behavior and terminal hyperlink suppo
 ## Usage
 
 ```typescript
-ui.link({ url: "https://rezitui.dev/getting-started/quickstart/", label: "Quickstart" })
+ui.link({ url: "https://rezitui.dev/docs/getting-started/quickstart/", label: "Quickstart" })
 ui.link({
   id: "docs-link",
-  url: "https://rezitui.dev/widgets/link/",
+  url: "https://rezitui.dev/docs/widgets/link/",
   label: "Link Widget Docs",
   onPress: () => openDocs(),
 })

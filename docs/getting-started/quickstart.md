@@ -189,6 +189,7 @@ my-tui-app/
     screens/
       main-screen.ts  # Single-screen renderer
       index.ts        # Optional route factory for multi-screen apps
+      settings.ts     # Additional routed screen when needed
     __tests__/
       reducer.test.ts
       render.test.ts

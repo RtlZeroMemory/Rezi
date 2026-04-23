@@ -118,7 +118,7 @@ Use this skill when:
      title: "My Screen",
      screen: (_params, context) =>
        renderMyScreen(context.state, {
-         onPrimaryAction: () => deps.dispatch({ type: "open-my-screen" }),
+         onPrimaryAction: () => dispatch({ type: "open-my-screen" }),
        }),
    }
    ```

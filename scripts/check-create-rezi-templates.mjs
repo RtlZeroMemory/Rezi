@@ -88,6 +88,14 @@ function toJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+function applySubstitutions(content, vars) {
+  let out = content;
+  for (const [key, value] of Object.entries(vars)) {
+    out = out.replaceAll(`__${key}__`, value);
+  }
+  return out;
+}
+
 function expectedTemplateReziVersion() {
   const pkg = JSON.parse(readFileSync(CREATE_REZI_PACKAGE_JSON, "utf8"));
   const version = pkg?.version;
@@ -154,7 +162,7 @@ function ensureTemplateIgnoreFiles(templateDir, templateKey) {
   }
 }
 
-function ensureScaffoldedIgnoreFiles(projectDir, templateDir, templateKey) {
+function ensureScaffoldedIgnoreFiles(projectDir, templateDir, templateKey, vars) {
   for (const ignoreFile of TEMPLATE_IGNORE_FILES) {
     const templatePath = join(templateDir, ignoreFile.publishName);
     const scaffoldedPath = join(projectDir, ignoreFile.scaffoldName);
@@ -168,7 +176,7 @@ function ensureScaffoldedIgnoreFiles(projectDir, templateDir, templateKey) {
       fail(`Template ${templateKey} leaked ${ignoreFile.publishName} into the scaffolded project.`);
     }
 
-    const expected = readFileSync(templatePath, "utf8");
+    const expected = applySubstitutions(readFileSync(templatePath, "utf8"), vars);
     const actual = readFileSync(scaffoldedPath, "utf8");
     if (actual !== expected) {
       fail(
@@ -391,7 +399,7 @@ for (const template of templates) {
   if (typeof scripts.start !== "string" || typeof scripts.dev !== "string") {
     fail(`Template ${template.key} package.json must include start/dev scripts.`);
   }
-  if (!scripts.dev.includes("tsx watch ") || !scripts.dev.includes("--hsr")) {
+  if (!/\btsx\s+watch\b/u.test(scripts.dev) || !/(^|\s)--hsr(\s|$)/u.test(scripts.dev)) {
     fail(`Template ${template.key} dev script must run tsx watch with --hsr.`);
   }
   if (typeof scripts.build !== "string") {
@@ -434,13 +442,19 @@ for (const template of templates) {
     runTsc(tempProject, template.dir, "build");
     runTsc(tempProject, template.dir, "typecheck");
     const scaffoldedProject = join(tempProject, "app");
+    const scaffoldVars = {
+      APP_NAME: `Template Smoke ${template.label}`,
+      PACKAGE_NAME: `rezi-template-smoke-${template.key}`,
+      TEMPLATE_LABEL: template.label,
+      TEMPLATE_KEY: template.key,
+    };
     await scaffoldModule.createProject({
       targetDir: scaffoldedProject,
       templateKey: template.key,
-      packageName: `rezi-template-smoke-${template.key}`,
-      displayName: `Template Smoke ${template.label}`,
+      packageName: scaffoldVars.PACKAGE_NAME,
+      displayName: scaffoldVars.APP_NAME,
     });
-    ensureScaffoldedIgnoreFiles(scaffoldedProject, templateDir, template.key);
+    ensureScaffoldedIgnoreFiles(scaffoldedProject, templateDir, template.key, scaffoldVars);
     if (INSTALL_SMOKE_ENABLED) {
       runInstalledSmoke(scaffoldedProject, template.key);
     }

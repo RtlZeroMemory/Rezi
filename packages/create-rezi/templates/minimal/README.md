@@ -43,9 +43,9 @@ npm run dev
 bun run dev
 ```
 
-`npm run dev` / `bun run dev` starts the app with `--hsr` so view edits hot-swap via
-`tsx watch src/main.ts --hsr`, wiring `createNodeApp({ hotReload: ... })` +
-`app.replaceView(...)` while preserving app state, focus, and form/input context.
+`npm run dev` / `bun run dev` runs `tsx watch src/main.ts --hsr`. The `--hsr`
+flag wires `createNodeApp({ hotReload: ... })` + `app.replaceView(...)` so view
+edits hot-swap while preserving app state, focus, and form/input context.
 
 ## Controls
 

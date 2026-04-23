@@ -60,10 +60,13 @@ npm run smoke:create-rezi-templates
 
 Notes:
 
-- `npm run quality:deadcode` is advisory in the workflow. Run it when you want
-  the same report locally, but it does not block publish.
-- `npm run docs:build` is not part of the tag-driven release workflow. Docs are
-  deployed separately by `docs.yml` on pushes to `main`.
+- `npm run quality:deadcode` is advisory in the workflow, so it is omitted from
+  the blocking pre-tag gate. Run it when you want the same report locally.
+- `npm run docs:build` is deliberately omitted because docs are deployed
+  separately by `docs.yml` on pushes to `main`.
+- `npm run test:progress` is included primarily to produce the CI summary
+  artifact, not because it is a separate blocking gate from the release-critical
+  tests.
 - Cross-platform Node (`18`, `20`, `22`) and Bun coverage still comes from CI;
   the command block above is the local pre-tag gate.
 

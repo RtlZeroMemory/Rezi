@@ -379,7 +379,7 @@ Keep all key mappings in a single file for discoverability and testability:
 // src/helpers/keybindings.ts
 import type { App } from "@rezi-ui/core";
 import type { State, Action } from "../types.js";
-import { reduce } from "./helpers/state.js";
+import { reduce } from "./state.js";
 
 export function registerKeybindings(app: App<State>) {
   const dispatch = (action: Action) => app.update(s => reduce(s, action));
