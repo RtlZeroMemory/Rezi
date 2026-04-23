@@ -54,6 +54,11 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   },
 ] as const;
 
+const TEMPLATE_FILENAME_ALIASES = new Map<string, string>([
+  ["gitignore", ".gitignore"],
+  ["npmignore", ".npmignore"],
+]);
+
 const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
 const TEMPLATE_ALIASES = new Map<string, TemplateKey>(
   TEMPLATE_DEFINITIONS.map((template) => [template.key, template.key]),
@@ -153,7 +158,8 @@ async function copyTemplateDir(
 
   for (const entry of entries) {
     const srcPath = join(sourceDir, entry.name);
-    const destPath = join(targetDir, entry.name);
+    const destName = TEMPLATE_FILENAME_ALIASES.get(entry.name) ?? entry.name;
+    const destPath = join(targetDir, destName);
     if (entry.isDirectory()) {
       await copyTemplateDir(srcPath, destPath, vars);
       continue;

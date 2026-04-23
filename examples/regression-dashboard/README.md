@@ -1,6 +1,8 @@
-# Regression Dashboard Example
+# Regression Dashboard Validation Surface
 
-Dashboard-based regression app for manually validating rendering behavior after core refactors.
+Dashboard-based validation surface for manually checking rendering, focus, routing, and live-update behavior after core refactors.
+
+This app is not intended as a beginner example or starter architecture guide. Use `npm create rezi`, `examples/hello-counter`, or `examples/gallery` to learn the framework; use `examples/regression-dashboard` when you need a repeatable regression target.
 
 ## Run (from repo root)
 
@@ -30,7 +32,7 @@ npm --prefix examples/regression-dashboard run typecheck
 npm --prefix examples/regression-dashboard run test
 ```
 
-## What to check
+## Validation checklist
 
 - Scroll service lanes with wheel/keys and verify no visual tearing.
 - Change filters/theme while telemetry ticks are active.

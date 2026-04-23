@@ -142,7 +142,9 @@ vite.config.ts.timestamp-*
 # Docs (MkDocs)
 .venv-docs/
 
-# Native addon build artifacts
+# Bench and release artifacts
+.artifacts/
+benchmarks/local-*
 packages/native/target/
 packages/native/*.node
 
@@ -160,12 +162,8 @@ Thumbs.db
 *.key
 credentials.json
 
-# Demo benchmark artifacts
-packages/demo/benchmarks/
-
 # Bench artifacts
-packages/bench/results/
-packages/bench/ratatui/target/
+packages/bench/ratatui-bench/target/
 benchmarks/native/ratatui-bench/target/
 
 # Local investigation artifacts
@@ -173,14 +171,4 @@ Screens/
 debug-traces/
 isolate-*.log
 CODEX_*.md
-.last_perf_dir
-.last_perf_pack
-.last_perf_pack_full
-.last_perf_pack_quick
 *.cpuprofile
-packages/bench/bubbletea-bench/.bin/
-
-# Ink compat benchmark artifacts (runner output)
-results/ink-bench_*/
-results/verify_*/
-results/verify_*.json

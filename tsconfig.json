@@ -24,6 +24,9 @@
     },
     {
       "path": "./examples/raw-draw-demo"
+    },
+    {
+      "path": "./examples/regression-dashboard"
     }
   ]
 }

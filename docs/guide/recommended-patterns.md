@@ -9,35 +9,63 @@ Follow the template project layout to keep your app organized, testable, and mai
 ```
 my-tui-app/
   src/
+    main.ts               # App bootstrap, lifecycle, and wiring
     types.ts              # State type, action union, domain types
     theme.ts              # Theme configuration and switching
     helpers/
+      state.ts            # Initial state, reducer, selectors
       keybindings.ts      # Centralized key mappings
-      actions.ts          # Reducer and dispatch logic
     screens/
-      main.ts             # Main screen view function
-      settings.ts         # Settings screen view function
-    widgets/
-      statusBar.ts        # Reusable custom widgets
-    index.ts              # App entry point (createNodeApp + wiring)
+      main-screen.ts      # Single-screen renderer
+      index.ts            # Optional route factory for multi-screen apps
+      settings.ts         # Routed screen view function when needed
+    __tests__/
+      reducer.test.ts     # Reducer examples
+      render.test.ts      # Screen rendering examples
+      keybindings.test.ts # Command/keybinding examples
   tsconfig.json
   package.json
 ```
 
-The entry point (`index.ts`) should be thin -- it creates the app, wires up keybindings, sets the view, and calls `app.run()`. All logic lives in the other modules.
+Add `src/widgets/` only when you start extracting reusable composites; the shipped templates do not create it by default.
+
+The entry point (`main.ts`) should be thin -- it creates the app, wires up keybindings, sets the view or routes, and calls `app.start()` or `app.run()`. All reducer and screen logic lives in the other modules.
 
 ```typescript
-// src/index.ts
+// src/main.ts
 import { createNodeApp } from "@rezi-ui/node";
-import type { State } from "./types.js";
-import { initialState } from "./helpers/actions.js";
-import { registerKeybindings } from "./helpers/keybindings.js";
-import { mainScreen } from "./screens/main.js";
+import { createInitialState, reduceMinimalState } from "./helpers/state.js";
+import { renderMainScreen } from "./screens/main-screen.js";
+import { themeSpec } from "./theme.js";
+import type { MinimalAction, MinimalState } from "./types.js";
 
-const app = createNodeApp<State>({ initialState });
+const initialState = createInitialState();
+const app = createNodeApp<MinimalState>({
+  initialState,
+  theme: themeSpec(initialState.themeName).theme,
+});
 
-app.view(mainScreen(app));
-registerKeybindings(app);
+function dispatch(action: MinimalAction): void {
+  app.update((previous) => reduceMinimalState(previous, action));
+}
+
+app.view((state) =>
+  renderMainScreen(state, {
+    onIncrement: () => dispatch({ type: "increment" }),
+    onDecrement: () => dispatch({ type: "decrement" }),
+    onCycleTheme: () => dispatch({ type: "cycle-theme" }),
+    onToggleHelp: () => dispatch({ type: "toggle-help" }),
+    onClearError: () => dispatch({ type: "set-error", message: null }),
+  }),
+);
+
+app.keys({
+  q: () => app.stop(),
+  "ctrl+c": () => app.stop(),
+  h: () => dispatch({ type: "toggle-help" }),
+  "shift+/": () => dispatch({ type: "toggle-help" }),
+});
+
 await app.run();
 ```
 
@@ -83,7 +111,7 @@ export type Action =
 ### Implement the Reducer
 
 ```typescript
-// src/helpers/actions.ts
+// src/helpers/state.ts
 import type { State, Action } from "../types.js";
 
 export const initialState: State = {
@@ -151,81 +179,78 @@ Benefits of this approach:
 
 ## Screen Architecture
 
-Each screen is a **pure view function** that takes state and returns a VNode tree. Screens should not call `app.update()` directly; they receive a dispatch function or wire callbacks through props.
+Each screen is a **pure view function** that takes state and handlers and returns a VNode tree. Screens should not call `app.update()` directly; wire callbacks in `src/main.ts` or `src/screens/index.ts`.
 
 ```typescript
-// src/screens/main.ts
+// src/screens/main-screen.ts
+import type { VNode } from "@rezi-ui/core";
 import { ui, rgb } from "@rezi-ui/core";
-import type { App } from "@rezi-ui/core";
-import type { State, Action } from "../types.js";
-import { reduceCliState } from "../helpers/state.js";
+import type { Action, State } from "../types.js";
 
-export function mainScreen(app: App<State>) {
-  const dispatch = (action: Action) => app.update(s => reduceCliState(s, action));
+type ScreenHandlers = Readonly<{
+  dispatch: (action: Action) => void;
+}>;
 
-  return (state: State) => {
-    const { todos, selectedIndex, filter, input } = state;
-    const filtered = todos.filter(t =>
-      filter === "all" ? true : filter === "active" ? !t.done : t.done
-    );
+export function renderMainScreen(state: State, handlers: ScreenHandlers): VNode {
+  const { todos, selectedIndex, filter, input } = state;
+  const filtered = todos.filter((todo) =>
+    filter === "all" ? true : filter === "active" ? !todo.done : todo.done,
+  );
 
-    return ui.column({ p: 1, gap: 1 }, [
-      // Header
-      ui.text("Todo List", { style: { fg: rgb(120, 200, 255), bold: true } }),
-
-      // Filter tabs
+  return ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Todo List" }),
+    body: ui.column({ gap: 1 }, [
+      ui.text("Tasks", { style: { fg: rgb(120, 200, 255), bold: true } }),
       ui.row({ gap: 2 }, [
         ui.button({
           id: "filter-all",
           label: filter === "all" ? "[All]" : "All",
-          onPress: () => dispatch({ type: "setFilter", filter: "all" }),
+          onPress: () => handlers.dispatch({ type: "setFilter", filter: "all" }),
         }),
         ui.button({
           id: "filter-active",
           label: filter === "active" ? "[Active]" : "Active",
-          onPress: () => dispatch({ type: "setFilter", filter: "active" }),
+          onPress: () => handlers.dispatch({ type: "setFilter", filter: "active" }),
         }),
         ui.button({
           id: "filter-done",
           label: filter === "done" ? "[Done]" : "Done",
-          onPress: () => dispatch({ type: "setFilter", filter: "done" }),
+          onPress: () => handlers.dispatch({ type: "setFilter", filter: "done" }),
         }),
       ]),
-
-      // Todo items
       ui.box({ title: `Items (${filtered.length})`, p: 1 }, [
         filtered.length === 0
           ? ui.text("No items", { style: { dim: true } })
           : ui.column(
               { gap: 0 },
-              filtered.map((todo, i) =>
+              filtered.map((todo, index) =>
                 ui.text(
-                  `${i === selectedIndex ? "> " : "  "}${todo.done ? "[x]" : "[ ]"} ${todo.text}`,
-                  { key: todo.id, style: { dim: todo.done } }
-                )
+                  `${index === selectedIndex ? "> " : "  "}${todo.done ? "[x]" : "[ ]"} ${todo.text}`,
+                  { key: todo.id, style: { dim: todo.done } },
+                ),
               ),
             ),
       ]),
-
-      // Input row
       ui.row({ gap: 1 }, [
         ui.input({
           id: "new-todo",
           value: input,
-          onInput: v => dispatch({ type: "setInput", value: v }),
+          onInput: (value) => handlers.dispatch({ type: "setInput", value }),
         }),
         ui.button({
           id: "add",
           label: "Add",
-          onPress: () => dispatch({ type: "addTodo", text: input }),
+          onPress: () => handlers.dispatch({ type: "addTodo", text: input }),
         }),
       ]),
-    ]);
-  };
+    ]),
+  });
 }
 ```
 
-Notice that `mainScreen()` returns a closure. The outer function captures `app` for dispatch wiring; the inner function is the pure view that receives state each render.
+Wire the handler object in `src/main.ts` for single-screen apps or in `src/screens/index.ts` when you are building routes. The screen module stays pure: state + handlers in, VNode out.
 
 ## Widget Composition
 
@@ -354,7 +379,7 @@ Keep all key mappings in a single file for discoverability and testability:
 // src/helpers/keybindings.ts
 import type { App } from "@rezi-ui/core";
 import type { State, Action } from "../types.js";
-import { reduce } from "./actions.js";
+import { reduce } from "./state.js";
 
 export function registerKeybindings(app: App<State>) {
   const dispatch = (action: Action) => app.update(s => reduce(s, action));
@@ -423,7 +448,7 @@ The reducer + pure screen architecture makes testing straightforward. Test each 
 ```typescript
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { reduce, initialState } from "./helpers/actions.js";
+import { reduce, initialState } from "./helpers/state.js";
 
 describe("reduce", () => {
   it("adds a todo", () => {
@@ -461,19 +486,23 @@ Screen view functions are pure -- pass in state, assert the returned VNode tree:
 ```typescript
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mainScreen } from "./screens/main.js";
+import type { State } from "./types.js";
+import { renderMainScreen } from "./screens/main-screen.js";
 
-describe("mainScreen", () => {
+describe("renderMainScreen", () => {
   it("shows empty message when no todos", () => {
-    // Create a mock app for wiring
-    const updates: Array<(s: State) => State> = [];
-    const mockApp = { update: (fn: any) => updates.push(fn) } as any;
-
-    const view = mainScreen(mockApp);
-    const tree = view({ todos: [], selectedIndex: 0, filter: "all", input: "" });
+    const state: State = {
+      todos: [],
+      selectedIndex: 0,
+      filter: "all",
+      input: "",
+    };
+    const tree = renderMainScreen(state, {
+      dispatch: () => {},
+    });
 
     // Assert tree structure -- inspect the VNode tree
-    assert.equal(tree.kind, "column");
+    assert.equal(tree.kind, "page");
   });
 });
 ```

@@ -2,11 +2,9 @@
 
 > **Status: pre-alpha.** Rezi is under active development. Public APIs, native ABI details, and behavior may change between releases. It is not yet recommended for production workloads.
 
-Rezi is a TypeScript framework for building terminal user interfaces on Node.js and Bun. It provides a declarative widget API, deterministic input and rendering behavior, and a native-backed rendering pipeline through the Zireael engine written in C. 
+Rezi is a TypeScript framework for building terminal user interfaces on Node.js and Bun. It provides a declarative widget API, deterministic input and rendering behavior, and a native-backed rendering pipeline through the [Zireael engine](https://github.com/RtlZeroMemory/Zireael) written in C.
 
-https://github.com/RtlZeroMemory/Zireael
-
-**Links:** [Website](https://rezitui.dev/) · [Docs](https://rezitui.dev/docs/) · [Quickstart](https://rezitui.dev/docs/getting-started/quickstart/) · [Widgets](https://rezitui.dev/docs/widgets/) · [Benchmarks](https://rezitui.dev/docs/benchmarks/)
+**Links:** [Website](https://rezitui.dev/) · [Docs](https://rezitui.dev/) · [Quickstart](https://rezitui.dev/getting-started/quickstart/) · [Widgets](https://rezitui.dev/widgets/) · [Benchmarks](https://rezitui.dev/benchmarks/)
 
 ## What Rezi Is For
 

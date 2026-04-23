@@ -29,16 +29,29 @@ Use this skill when:
 
 1. **Create screen file** at `src/screens/{screen-name}.ts`:
    ```typescript
+   import type { VNode } from "@rezi-ui/core";
    import { ui } from "@rezi-ui/core";
-   import type { AppState } from "../state.js";
+   import type { AppState } from "../types.js";
 
-   export function MyScreen(state: AppState) {
+   type ScreenHandlers = Readonly<{
+     onPrimaryAction: () => void;
+   }>;
+
+   export function renderMyScreen(_state: AppState, handlers: ScreenHandlers): VNode {
      return ui.page({
        p: 1,
        gap: 1,
        header: ui.header({ title: "Screen Title" }),
        body: ui.column({ gap: 1 }, [
-         // screen content
+         ui.text("Screen content"),
+         ui.actions([
+           ui.button({
+             id: "my-screen-action",
+             label: "Go",
+             intent: "primary",
+             onPress: handlers.onPrimaryAction,
+           }),
+         ]),
        ]),
      });
    }
@@ -87,13 +100,26 @@ Use this skill when:
 
 4. **If using router**, add a route definition (see `rezi-routing` skill)
 
-5. **Add keybindings** for screen-specific actions in the app's key handler
+5. **Add keybindings** for screen-specific actions in `src/helpers/keybindings.ts` or your route command resolver
 
-6. **Wire into main** via router or view switch:
+6. **Wire into `src/main.ts`** via a view builder or route factory:
    ```typescript
-   view: (state) => {
-     if (state.screen === "my-screen") return MyScreen(state);
-     return HomeScreen(state);
+   app.view((state) =>
+     renderMyScreen(state, {
+       onPrimaryAction: () => dispatch({ type: "open-my-screen" }),
+     }),
+   );
+   ```
+
+   For routed apps, add the screen to `src/screens/index.ts`:
+   ```typescript
+   {
+     id: "my-screen",
+     title: "My Screen",
+     screen: (_params, context) =>
+       renderMyScreen(context.state, {
+         onPrimaryAction: () => dispatch({ type: "open-my-screen" }),
+       }),
    }
    ```
 

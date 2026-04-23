@@ -149,8 +149,8 @@
     {
       "name": "link",
       "requiredProps": ["url"],
-      "commonProps": ["label", "onPress"],
-      "example": "ui.link('https://example.com', 'Open')"
+      "commonProps": ["label", "id", "disabled", "style", "onPress"],
+      "example": "ui.link({ url: 'https://example.com', label: 'Open' })"
     },
     {
       "name": "canvas",

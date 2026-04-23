@@ -55,7 +55,7 @@ For the public template guide, see: [Getting Started -> Create Rezi](../getting-
 
 Template dev workflow notes:
 
-- The public templates run `tsx src/main.ts --hsr` for `npm run dev` / `bun run dev`.
+- The public templates run `tsx watch src/main.ts --hsr` for `npm run dev` / `bun run dev`.
 - This enables in-process hot state-preserving reload through `@rezi-ui/node` `createNodeApp({ hotReload: ... })`.
 
 ## Options

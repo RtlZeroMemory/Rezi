@@ -10,4 +10,4 @@ Runtime-agnostic TypeScript core for Rezi:
 
 Most applications should use the Node backend package (`@rezi-ui/node`), which depends on this package.
 
-Docs: `https://rezitui.dev/docs`
+Docs: `https://rezitui.dev/packages/core/`

@@ -49,7 +49,7 @@ bun add -d typescript tsx
 
 ## Minimal Example
 
-The simplest working Rezi app in 10 lines. Create `index.ts`:
+The simplest working Rezi app in 10 lines. Create `main.ts`:
 
 ```typescript
 import { ui } from "@rezi-ui/core";
@@ -85,13 +85,13 @@ await app.run();
 Run with:
 
 ```bash
-npx tsx index.ts
+npx tsx main.ts
 ```
 
 Or with Bun:
 
 ```bash
-bun run index.ts
+bun run main.ts
 ```
 
 You should see a counter UI. Use Tab to navigate to the button, Enter to activate it, and `q` to quit. Mouse clicks also work if your terminal supports mouse tracking.
@@ -180,17 +180,23 @@ For anything beyond a quick prototype, follow the template project structure:
 ```
 my-tui-app/
   src/
-    types.ts          # State type, action types
-    theme.ts          # Theme configuration
+    main.ts           # App bootstrap and lifecycle wiring
+    types.ts          # State type, action union, domain types
+    theme.ts          # Theme catalog and styling helpers
     helpers/
+      state.ts        # Initial state, reducer, selectors
       keybindings.ts  # Centralized key mappings
-      actions.ts      # Reducer / action handlers
     screens/
-      main.ts         # Screen view functions
-    index.ts          # App entry point
+      main-screen.ts  # Single-screen renderer
+      index.ts        # Optional route factory for multi-screen apps
+      settings.ts     # Additional routed screen when needed
+    __tests__/
+      reducer.test.ts
+      render.test.ts
+      keybindings.test.ts
 ```
 
-This separation keeps your app testable and maintainable. See [Recommended Patterns](../guide/recommended-patterns.md) for details.
+This matches the shipped templates: `minimal` starts with `main-screen.ts`, while `cli-tool` and `starship` add `screens/index.ts` plus one file per route. Keep `src/main.ts` thin and move reducer logic into `helpers/state.ts`. See [Recommended Patterns](../guide/recommended-patterns.md) for details.
 
 ## A More Complete Example
 

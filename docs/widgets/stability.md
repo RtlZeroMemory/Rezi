@@ -23,9 +23,9 @@ These widgets are the EPIC-04 hardening targets and are currently `stable`.
 
 | Widget | Tier | Contract coverage |
 |--------|------|-------------------|
-| [Input](input.md) | `stable` | Cursor/edit/paste/focus-capture contract tests in `packages/core/src/runtime/__tests__/inputEditor.contract.test.ts` |
-| [Table](table.md) | `stable` | Selection/column-width/viewport/row-key tests in `packages/core/src/widgets/__tests__/table.golden.test.ts` and `packages/core/src/app/__tests__/table.renderCache.test.ts` |
-| [Virtual List](virtual-list.md) | `stable` | Visible-range/overscan/scroll-clamp/navigation tests in `packages/core/src/widgets/__tests__/virtualList.contract.test.ts` |
+| [Input](input.md) | `stable` | Cursor/edit/paste/selection/undo/unicode contract tests in `packages/core/src/runtime/__tests__/inputEditor.contract.test.ts`, `packages/core/src/runtime/__tests__/inputEditor.selection.test.ts`, `packages/core/src/runtime/__tests__/inputEditor.undo.test.ts`, and `packages/core/src/runtime/__tests__/inputEditor.unicode.test.ts` |
+| [Table](table.md) | `stable` | Selection/column-width/viewport/row-key/sorting tests in `packages/core/src/widgets/__tests__/table.golden.test.ts`, `packages/core/src/widgets/__tests__/table.selection.test.ts`, `packages/core/src/widgets/__tests__/table.sorting.test.ts`, and `packages/core/src/app/__tests__/table.interactions.test.ts` |
+| [Virtual List](virtual-list.md) | `stable` | Visible-range/overscan/scroll-clamp/navigation tests in `packages/core/src/widgets/__tests__/virtualList.contract.test.ts`, `packages/core/src/widgets/__tests__/virtualList.keyboard.test.ts`, and `packages/core/src/widgets/__tests__/virtualList.golden.test.ts` |
 | [Command Palette](command-palette.md) | `stable` | Async fetch ordering/stale-cancel/query/nav/escape tests in `packages/core/src/app/__tests__/commandPaletteRouting.test.ts` and `packages/core/src/widgets/__tests__/commandPalette.test.ts` |
 | [File Picker](file-picker.md) | `stable` | Expand/collapse/selection/open/toggle contracts in `packages/core/src/app/__tests__/filePickerRouting.contracts.test.ts` |
 | [File Tree Explorer](file-tree-explorer.md) | `stable` | Focus/activation/toggle/context-menu contracts in `packages/core/src/app/__tests__/fileTreeExplorer.contextMenu.test.ts` |

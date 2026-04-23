@@ -1,6 +1,11 @@
 ---
 name: rezi-routing
 description: Add routing with guards and nested outlets to a Rezi app. Use when building multi-page/screen TUI applications.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Edit, Write
+argument-hint: "[route-name]"
+metadata:
+  short-description: Add routing
 ---
 
 ## When to use

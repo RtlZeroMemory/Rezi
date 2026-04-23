@@ -15,6 +15,7 @@ The hosted API reference is available at the documentation site under `/api/refe
 Generate the API documentation locally:
 
 ```bash
+npm run build
 npm run docs:api
 ```
 
@@ -23,6 +24,7 @@ The output is written to `out/typedoc/index.html`.
 Alternatively, build the complete documentation site:
 
 ```bash
+npm run build
 npm run docs:build
 ```
 
