@@ -2,13 +2,23 @@
 
 > **Status: pre-alpha.** Rezi is under active development. Public APIs, native ABI details, and behavior may change between releases. It is not yet recommended for production workloads.
 
-Rezi is a TypeScript framework for building terminal user interfaces on Node.js and Bun. It provides a declarative widget API, deterministic input and rendering behavior, and a native-backed rendering pipeline through the [Zireael engine](https://github.com/RtlZeroMemory/Zireael) written in C.
+Rezi is a TypeScript framework for deterministic, native-backed terminal applications on Node.js and Bun. It provides a declarative widget API, predictable input and rendering behavior, and a rendering pipeline powered by the [Zireael engine](https://github.com/RtlZeroMemory/Zireael) written in C.
 
 **Links:** [Website](https://rezitui.dev/) · [Docs](https://rezitui.dev/) · [Quickstart](https://rezitui.dev/getting-started/quickstart/) · [Widgets](https://rezitui.dev/widgets/) · [Benchmarks](https://rezitui.dev/benchmarks/)
+
+![Rezi command console demo](assets/REZICONSOLE3.gif)
 
 ## What Rezi Is For
 
 Rezi is aimed at terminal applications that need more than line-oriented output: multi-panel layouts, routed screens, focusable controls, forms, tables, overlays, testing support, and predictable behavior under keyboard and mouse input.
+
+## Why Rezi
+
+- Declarative application structure without requiring React
+- Deterministic render and input contracts for testable TUI workflows
+- Native-backed framebuffer diffing and terminal output through Zireael
+- First-party widgets for real app surfaces: forms, tables, overlays, routing, charts, and command flows
+- Behavior-first test utilities for rendering, routing, focus, and terminal scenarios
 
 ## What Rezi Includes
 
@@ -79,7 +89,21 @@ bun run start
 
 - `minimal` - small single-screen starter
 - `cli-tool` - routed multi-screen workflow starter
-- `starship` - larger console-style starter showing tabs, charts, forms, and overlays
+- `starship` - polished command-console showcase with routing, charts, canvas, forms, and overlays
+
+## Starship Demo
+
+Use the template when you want a larger example of Rezi's app architecture:
+
+```bash
+npm create rezi my-console -- --template starship
+```
+
+The demo intentionally shows the broad surface area. For new applications, start with `minimal` or `cli-tool` unless you specifically want the full showcase.
+
+## Feature Maturity
+
+Rezi is still pre-alpha, but not every feature has the same risk profile. Core layout, input, routing, tables, virtual lists, command palette, and file-picker workflows are the current hardening focus. Richer surfaces such as advanced graphics, charts, code/editor-style widgets, and specialized dialogs should be treated as beta or experimental while the public API settles.
 
 ## Packages
 

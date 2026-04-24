@@ -6,6 +6,8 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 `__APP_NAME__` is a multi-deck starship operations console. It demonstrates routed application architecture, deterministic telemetry simulation, rich widgets, layered overlays, and declarative animation hooks in a single advanced template.
 
+This template is intentionally larger than the default starters. Use it as a showcase, reference app, or screenshot target; use `minimal` or `cli-tool` when you want a smaller starting point.
+
 ## Decks
 
 - `bridge`: Command overview with animated schematic, gauges, sparkline/line chart telemetry, and system health lanes.
