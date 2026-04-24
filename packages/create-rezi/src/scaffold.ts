@@ -18,7 +18,7 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "minimal",
     label: "Minimal Utility TUI",
-    description: "Single-screen starter for focused tools",
+    description: "Small single-screen starter for focused terminal utilities",
     safetyTag: "safe-default",
     safetyNote: "Small-footprint template for quick utility workflows.",
     highlights: [
@@ -30,7 +30,7 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "cli-tool",
     label: "Multi-Screen CLI Tool",
-    description: "Multi-screen CLI starter with first-party routing",
+    description: "Routed starter for product-style terminal tools",
     safetyTag: "safe-default",
     safetyNote: "Lightweight template focused on product workflows and routing.",
     highlights: [
@@ -42,12 +42,12 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "starship",
     label: "Starship Command Console",
-    description: "Polished multi-deck showcase for routing, animation, charts, forms, and overlays",
+    description: "Larger command-console showcase for routing, animation, charts, forms, and overlays",
     safetyTag: "safe-default",
     safetyNote:
       "Feature-rich showcase template with moderate CPU usage from animation hooks and live telemetry.",
     highlights: [
-      "six-screen bridge with routing, animated gauges, live telemetry charts, and crew management",
+      "six-screen command console with routing, animated gauges, live telemetry charts, and crew management",
       "command palette, modal dialogs, toast notifications, forms, split panes, canvas, and theme cycling with keybinding modes",
     ],
     dir: "starship",
