@@ -1,7 +1,7 @@
 {
   "name": "@rezi-ui/node",
   "version": "0.1.0-alpha.61",
-  "description": "Node.js/Bun backend for Rezi (worker-thread engine ownership, scheduling, IO).",
+  "description": "Node.js/Bun backend for running Rezi terminal applications with native engine integration.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
   "repository": {

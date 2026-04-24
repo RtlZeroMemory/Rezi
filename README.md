@@ -2,7 +2,7 @@
 
 > **Status: pre-alpha.** Rezi is under active development. Public APIs, native ABI details, and behavior may change between releases. It is not yet recommended for production workloads.
 
-Rezi is a TypeScript framework for deterministic, native-backed terminal applications on Node.js and Bun. It provides a declarative widget API, predictable input and rendering behavior, and a rendering pipeline powered by the [Zireael engine](https://github.com/RtlZeroMemory/Zireael) written in C.
+Rezi is a TypeScript framework for building serious terminal applications on Node.js and Bun. It gives you structured layout, focus and input handling, routing, widgets, testing tools, and a native-backed rendering pipeline powered by the [Zireael engine](https://github.com/RtlZeroMemory/Zireael) written in C.
 
 **Links:** [Website](https://rezitui.dev/) · [Docs](https://rezitui.dev/) · [Quickstart](https://rezitui.dev/getting-started/quickstart/) · [Widgets](https://rezitui.dev/widgets/) · [Benchmarks](https://rezitui.dev/benchmarks/)
 
@@ -10,15 +10,15 @@ Rezi is a TypeScript framework for deterministic, native-backed terminal applica
 
 ## What Rezi Is For
 
-Rezi is aimed at terminal applications that need more than line-oriented output: multi-panel layouts, routed screens, focusable controls, forms, tables, overlays, testing support, and predictable behavior under keyboard and mouse input.
+Rezi is aimed at dashboards, control planes, internal tools, log viewers, and developer workflows that need more than line-oriented output: multi-panel layouts, routed screens, focusable controls, forms, tables, overlays, testing support, and predictable behavior under keyboard and mouse input.
 
 ## Why Rezi
 
-- Declarative application structure without requiring React
-- Deterministic render and input contracts for testable TUI workflows
+- Structured app model for real TUI workflows
+- Declarative widget API without requiring React
 - Native-backed framebuffer diffing and terminal output through Zireael
-- First-party widgets for real app surfaces: forms, tables, overlays, routing, charts, and command flows
-- Behavior-first test utilities for rendering, routing, focus, and terminal scenarios
+- First-party widgets for forms, tables, overlays, routing, charts, and command flows
+- Reproducible rendering and input contracts for behavior-first tests
 
 ## What Rezi Includes
 
@@ -26,7 +26,7 @@ Rezi is aimed at terminal applications that need more than line-oriented output:
 - Interactive widgets such as buttons, inputs, selects, checkboxes, radios, sliders, tabs, tables, virtual lists, trees, dialogs, dropdowns, and toasts
 - Graphics and data-display widgets including canvas, charts, gauges, sparklines, heatmaps, and image support
 - Application primitives for focus management, keybindings, routing, theming, and controlled state updates
-- Testing utilities and deterministic rendering behavior intended to make TUI code easier to verify
+- Testing utilities for render assertions, routing and focus behavior, and replayable input workflows
 - A native-backed rendering path through Zireael for layout, framebuffer diffing, and terminal output
 
 ## Example
@@ -87,9 +87,9 @@ bun run start
 
 ## Public Templates
 
-- `minimal` - small single-screen starter
-- `cli-tool` - routed multi-screen workflow starter
-- `starship` - polished command-console showcase with routing, charts, canvas, forms, and overlays
+- `minimal` - small single-screen starter for focused utilities
+- `cli-tool` - routed multi-screen starter for product-style terminal tools
+- `starship` - larger command-console showcase with routing, charts, canvas, forms, and overlays
 
 ## Starship Demo
 
