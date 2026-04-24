@@ -1,7 +1,7 @@
 {
   "name": "create-rezi",
   "version": "0.1.0-alpha.61",
-  "description": "Scaffold a Rezi terminal UI app.",
+  "description": "Scaffold a Rezi terminal application from focused starter and showcase templates.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
   "repository": {

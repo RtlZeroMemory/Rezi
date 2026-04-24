@@ -1,7 +1,7 @@
 {
   "name": "@rezi-ui/testkit",
   "version": "0.1.0-alpha.61",
-  "description": "Test utilities and fixtures for Rezi.",
+  "description": "Test utilities and fixtures for Rezi terminal applications.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
   "repository": {
