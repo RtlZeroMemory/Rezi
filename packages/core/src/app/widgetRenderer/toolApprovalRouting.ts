@@ -6,6 +6,7 @@ import {
   ZR_MOD_SHIFT,
 } from "../../keybindings/keyCodes.js";
 import type { ToolApprovalDialogProps } from "../../widgets/types.js";
+import { invokeCallbackSafely } from "./safeCallback.js";
 
 export type ToolApprovalAction = "allow" | "deny" | "allowSession";
 
@@ -30,8 +31,8 @@ export function routeToolApprovalDialogKeyDown(
     focusedActionById.get(toolDialog.id) ?? toolDialog.focusedAction ?? actions[0] ?? "allow";
 
   if (keyCode === ZR_KEY_ESCAPE) {
-    toolDialog.onPress("deny");
-    toolDialog.onClose();
+    invokeCallbackSafely("toolApprovalDialog.onPress", toolDialog.onPress, "deny");
+    invokeCallbackSafely("toolApprovalDialog.onClose", toolDialog.onClose);
     return true;
   }
 
@@ -46,26 +47,29 @@ export function routeToolApprovalDialogKeyDown(
   }
 
   if (keyCode === Y) {
-    toolDialog.onPress("allow");
-    toolDialog.onClose();
+    invokeCallbackSafely("toolApprovalDialog.onPress", toolDialog.onPress, "allow");
+    invokeCallbackSafely("toolApprovalDialog.onClose", toolDialog.onClose);
     return true;
   }
   if (keyCode === N) {
-    toolDialog.onPress("deny");
-    toolDialog.onClose();
+    invokeCallbackSafely("toolApprovalDialog.onPress", toolDialog.onPress, "deny");
+    invokeCallbackSafely("toolApprovalDialog.onClose", toolDialog.onClose);
     return true;
   }
   if (keyCode === S && toolDialog.onAllowForSession) {
-    toolDialog.onAllowForSession();
-    toolDialog.onClose();
+    invokeCallbackSafely("toolApprovalDialog.onAllowForSession", toolDialog.onAllowForSession);
+    invokeCallbackSafely("toolApprovalDialog.onClose", toolDialog.onClose);
     return true;
   }
   if (keyCode === ZR_KEY_ENTER) {
-    if (focusedAction === "deny") toolDialog.onPress("deny");
-    else if (focusedAction === "allowSession" && toolDialog.onAllowForSession)
-      toolDialog.onAllowForSession();
-    else toolDialog.onPress("allow");
-    toolDialog.onClose();
+    if (focusedAction === "deny") {
+      invokeCallbackSafely("toolApprovalDialog.onPress", toolDialog.onPress, "deny");
+    } else if (focusedAction === "allowSession" && toolDialog.onAllowForSession) {
+      invokeCallbackSafely("toolApprovalDialog.onAllowForSession", toolDialog.onAllowForSession);
+    } else {
+      invokeCallbackSafely("toolApprovalDialog.onPress", toolDialog.onPress, "allow");
+    }
+    invokeCallbackSafely("toolApprovalDialog.onClose", toolDialog.onClose);
     return true;
   }
 

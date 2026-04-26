@@ -68,6 +68,19 @@ function mouseEvent(
   };
 }
 
+function captureWarnings<T>(fn: () => T): Readonly<{ result: T; warnings: readonly string[] }> {
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (message?: unknown) => {
+    warnings.push(String(message));
+  };
+  try {
+    return Object.freeze({ result: fn(), warnings: Object.freeze(warnings.slice()) });
+  } finally {
+    console.warn = originalWarn;
+  }
+}
+
 function submit(
   renderer: WidgetRenderer<void>,
   view: () => VNode,
@@ -218,6 +231,70 @@ describe("input and textarea behavior contracts", () => {
 
     assert.equal(renderer.getFocusedId(), "next");
     assert.equal(blurCount, 1);
+  });
+});
+
+describe("widget callback isolation contracts", () => {
+  test("button callback exceptions do not escape mouse routing", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const view = () =>
+      ui.button({
+        id: "danger",
+        label: "Run",
+        onPress: () => {
+          throw new Error("button failed");
+        },
+      });
+
+    submit(renderer, view);
+
+    const center = centerOf(renderer, "danger");
+    renderer.routeEngineEvent(mouseEvent(center.x, center.y, 3, { buttons: 1 }));
+    const { result, warnings } = captureWarnings(() =>
+      renderer.routeEngineEvent(mouseEvent(center.x, center.y, 4)),
+    );
+
+    assert.deepEqual(result.action, { id: "danger", action: "press" });
+    assert.equal(renderer.getFocusedId(), "danger");
+    assert.equal(
+      warnings.some((entry) => entry.includes("button.onPress callback threw: button failed")),
+      true,
+    );
+  });
+
+  test("checkbox callback exceptions do not escape keyboard routing", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const view = () =>
+      ui.checkbox({
+        id: "accept",
+        label: "Accept",
+        checked: false,
+        onChange: () => {
+          throw new Error("checkbox failed");
+        },
+      });
+
+    submit(renderer, view);
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_TAB));
+    assert.equal(renderer.getFocusedId(), "accept");
+
+    const { result, warnings } = captureWarnings(() =>
+      renderer.routeEngineEvent(keyEvent(ZR_KEY_SPACE)),
+    );
+
+    assert.deepEqual(result.action, { id: "accept", action: "toggle", checked: true });
+    assert.equal(
+      warnings.some((entry) => entry.includes("checkbox.onChange callback threw: checkbox failed")),
+      true,
+    );
   });
 });
 

@@ -44,6 +44,7 @@ import {
   resolveVirtualListItemHeightSpec,
 } from "../../widgets/virtualList.js";
 import type { LogsConsoleRenderCache, TableRenderCache } from "./renderCaches.js";
+import { invokeCallbackSafely } from "./safeCallback.js";
 
 export type KeyboardRoutingOutcome = Readonly<{
   needsRender: boolean;
@@ -133,7 +134,7 @@ export function routeToastActionKeyDown(
   ) {
     const cb = ctx.toastActionByFocusId.get(focusedId);
     if (cb) {
-      cb();
+      invokeCallbackSafely("toast action", cb);
       return ROUTE_RENDER;
     }
   }
@@ -173,7 +174,7 @@ export function routeLogsConsoleKeyDown(
     const delta = isUp ? -1 : 1;
     const nextScrollTop = Math.max(0, Math.min(maxScroll, logs.scrollTop + delta));
     if (nextScrollTop !== logs.scrollTop) {
-      logs.onScroll(nextScrollTop);
+      invokeCallbackSafely("logsConsole.onScroll", logs.onScroll, nextScrollTop);
       return ROUTE_RENDER;
     }
     return ROUTE_NO_RENDER;
@@ -182,7 +183,7 @@ export function routeLogsConsoleKeyDown(
   if (key === 71 /* G */) {
     if (isShift) {
       if (logs.scrollTop !== maxScroll) {
-        logs.onScroll(maxScroll);
+        invokeCallbackSafely("logsConsole.onScroll", logs.onScroll, maxScroll);
         return ROUTE_RENDER;
       }
       return ROUTE_NO_RENDER;
@@ -193,7 +194,7 @@ export function routeLogsConsoleKeyDown(
     if (prevG !== undefined && event.timeMs - prevG <= 500) {
       ctx.logsConsoleLastGTimeById.delete(logs.id);
       if (logs.scrollTop !== 0) {
-        logs.onScroll(0);
+        invokeCallbackSafely("logsConsole.onScroll", logs.onScroll, 0);
         return ROUTE_RENDER;
       }
       return ROUTE_NO_RENDER;
@@ -202,7 +203,7 @@ export function routeLogsConsoleKeyDown(
   }
 
   if (!isShift && key === 67 /* C */ && logs.onPress) {
-    logs.onPress();
+    invokeCallbackSafely("logsConsole.onPress", logs.onPress);
     return ROUTE_RENDER;
   }
 
@@ -211,7 +212,7 @@ export function routeLogsConsoleKeyDown(
     const entry = filtered[idx];
     if (entry) {
       const expanded = logs.expandedEntries?.includes(entry.id) ?? false;
-      logs.onChange(entry.id, !expanded);
+      invokeCallbackSafely("logsConsole.onChange", logs.onChange, entry.id, !expanded);
       return ROUTE_RENDER;
     }
     return ROUTE_NO_RENDER;
@@ -245,7 +246,11 @@ export function routeDiffViewerKeyDown(
   if (isNext || isPrev) {
     const nextFocused = navigateHunk(focusedHunk, isNext ? "next" : "prev", hunkCount);
     ctx.diffViewerFocusedHunkById.set(diff.id, nextFocused);
-    diff.onScroll(getHunkScrollPosition(nextFocused, diff.diff.hunks));
+    invokeCallbackSafely(
+      "diffViewer.onScroll",
+      diff.onScroll,
+      getHunkScrollPosition(nextFocused, diff.diff.hunks),
+    );
     return ROUTE_RENDER;
   }
 
@@ -257,24 +262,24 @@ export function routeDiffViewerKeyDown(
     if (expanded) next.delete(focusedHunk);
     else next.add(focusedHunk);
     ctx.diffViewerExpandedHunksById.set(diff.id, next);
-    diff.onHunkToggle?.(focusedHunk, !expanded);
+    invokeCallbackSafely("diffViewer.onHunkToggle", diff.onHunkToggle, focusedHunk, !expanded);
     return ROUTE_RENDER;
   }
 
   if (!isShift && key === 83 /* S */ && diff.onStageHunk) {
-    diff.onStageHunk(focusedHunk);
+    invokeCallbackSafely("diffViewer.onStageHunk", diff.onStageHunk, focusedHunk);
     return ROUTE_RENDER;
   }
   if (!isShift && key === 85 /* U */ && diff.onUnstageHunk) {
-    diff.onUnstageHunk(focusedHunk);
+    invokeCallbackSafely("diffViewer.onUnstageHunk", diff.onUnstageHunk, focusedHunk);
     return ROUTE_RENDER;
   }
   if (!isShift && key === 65 /* A */ && diff.onApplyHunk) {
-    diff.onApplyHunk(focusedHunk);
+    invokeCallbackSafely("diffViewer.onApplyHunk", diff.onApplyHunk, focusedHunk);
     return ROUTE_RENDER;
   }
   if (!isShift && key === 82 /* R */ && diff.onRevertHunk) {
-    diff.onRevertHunk(focusedHunk);
+    invokeCallbackSafely("diffViewer.onRevertHunk", diff.onRevertHunk, focusedHunk);
     return ROUTE_RENDER;
   }
 
@@ -335,13 +340,18 @@ export function routeVirtualListKeyDown(
       overscan,
       measuredHeights,
     );
-    vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
+    invokeCallbackSafely("virtualList.onScroll", vlist.onScroll, r.nextScrollTop, [
+      startIndex,
+      endIndex,
+    ]);
   }
 
   let routedAction: RoutedAction | undefined;
   if (r.action) {
     const item = vlist.items[r.action.index];
-    if (item !== undefined && vlist.onSelect) vlist.onSelect(item, r.action.index);
+    if (item !== undefined && vlist.onSelect) {
+      invokeCallbackSafely("virtualList.onSelect", vlist.onSelect, item, r.action.index);
+    }
     routedAction = Object.freeze({
       id: r.action.id,
       action: "select",
@@ -440,7 +450,7 @@ export function routeTableKeyDown(
         if (col && col.sortable === true && typeof table.onSort === "function") {
           const nextDirection: "asc" | "desc" =
             table.sortColumn === col.key && table.sortDirection === "asc" ? "desc" : "asc";
-          table.onSort(col.key, nextDirection);
+          invokeCallbackSafely("table.onSort", table.onSort, col.key, nextDirection);
           return ROUTE_RENDER;
         }
         return ROUTE_NO_RENDER;
@@ -487,13 +497,15 @@ export function routeTableKeyDown(
       }
 
       if (r.nextSelection !== undefined && table.onSelectionChange) {
-        table.onSelectionChange(r.nextSelection);
+        invokeCallbackSafely("table.onSelectionChange", table.onSelectionChange, r.nextSelection);
       }
 
       let routedAction: RoutedAction | undefined;
       if (r.action) {
         const row = table.data[r.action.rowIndex];
-        if (row !== undefined && table.onRowPress) table.onRowPress(row, r.action.rowIndex);
+        if (row !== undefined && table.onRowPress) {
+          invokeCallbackSafely("table.onRowPress", table.onRowPress, row, r.action.rowIndex);
+        }
         routedAction = Object.freeze({
           id: r.action.id,
           action: "rowPress",
@@ -600,14 +612,16 @@ export function routeTreeKeyDown(
 
   if (r.nodeToSelect && tree.onSelect) {
     const found = flatNodes.find((n) => n.key === r.nodeToSelect);
-    if (found) tree.onSelect(found.node as unknown);
+    if (found) invokeCallbackSafely("tree.onSelect", tree.onSelect, found.node as unknown);
   }
 
   let routedAction: RoutedAction | undefined;
 
   if (r.nodeToActivate) {
     const found = flatNodes.find((n) => n.key === r.nodeToActivate);
-    if (found && tree.onPress) tree.onPress(found.node as unknown);
+    if (found && tree.onPress) {
+      invokeCallbackSafely("tree.onPress", tree.onPress, found.node as unknown);
+    }
     routedAction = Object.freeze({
       id: tree.id,
       action: "activate",
@@ -659,7 +673,9 @@ export function routeTreeKeyDown(
 
     for (const k of diffs) {
       const found = flatNodes.find((n) => n.key === k);
-      if (found) tree.onChange(found.node as unknown, next.has(k));
+      if (found) {
+        invokeCallbackSafely("tree.onChange", tree.onChange, found.node as unknown, next.has(k));
+      }
     }
   }
 
@@ -705,7 +721,7 @@ export function routeSliderKeyDown(
   });
   const nextValue = adjustSliderValue(normalized.value, normalized, adjustment);
   if (nextValue !== normalized.value) {
-    slider.onChange(nextValue);
+    invokeCallbackSafely("slider.onChange", slider.onChange, nextValue);
     return ROUTE_RENDER;
   }
   return ROUTE_NO_RENDER;
@@ -740,7 +756,7 @@ export function routeSelectKeyDown(
     const nextIdx = idx < 0 ? 0 : (idx + dir + opts.length) % opts.length;
     const next = opts[nextIdx];
     if (next && next.value !== select.value) {
-      select.onChange(next.value);
+      invokeCallbackSafely("select.onChange", select.onChange, next.value);
       return ROUTE_RENDER;
     }
   }
@@ -763,7 +779,7 @@ export function routeCheckboxKeyDown(
   if (event.key !== ZR_KEY_ENTER && event.key !== ZR_KEY_SPACE) return null;
 
   const nextChecked = !checkbox.checked;
-  checkbox.onChange(nextChecked);
+  invokeCallbackSafely("checkbox.onChange", checkbox.onChange, nextChecked);
   const action: RoutedAction = Object.freeze({
     id: focusedId,
     action: "toggle",
@@ -800,7 +816,7 @@ export function routeRadioGroupKeyDown(
     const nextIdx = idx < 0 ? 0 : (idx + dir + opts.length) % opts.length;
     const next = opts[nextIdx];
     if (next && next.value !== radio.value) {
-      radio.onChange(next.value);
+      invokeCallbackSafely("radioGroup.onChange", radio.onChange, next.value);
       const action: RoutedAction = Object.freeze({
         id: focusedId,
         action: "change",

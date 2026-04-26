@@ -485,7 +485,7 @@ export function routeSplitPaneMouse(
         );
         const nextSizes =
           drag.sizeMode === "percent" ? sizesToPercentages(nextCellSizes) : nextCellSizes;
-        pane.onChange(Object.freeze(nextSizes.slice()));
+        invokeCallbackSafely(pane.onChange, Object.freeze(nextSizes.slice()));
         return ROUTE_RENDER;
       }
 
@@ -547,11 +547,7 @@ export function routeSplitPaneMouse(
 
               const targetIndex = event.x < x0 ? i : event.x >= x0 + dividerSize ? i + 1 : i;
               const isCollapsed = pane.collapsed?.includes(targetIndex) ?? false;
-              try {
-                pane.onCollapse(targetIndex, !isCollapsed);
-              } catch {
-                // Swallow collapse callback errors to preserve routing determinism.
-              }
+              invokeCallbackSafely(pane.onCollapse, targetIndex, !isCollapsed);
               return ROUTE_RENDER;
             }
 
@@ -615,11 +611,7 @@ export function routeSplitPaneMouse(
 
               const targetIndex = event.y < y0 ? i : event.y >= y0 + dividerSize ? i + 1 : i;
               const isCollapsed = pane.collapsed?.includes(targetIndex) ?? false;
-              try {
-                pane.onCollapse(targetIndex, !isCollapsed);
-              } catch {
-                // Swallow collapse callback errors to preserve routing determinism.
-              }
+              invokeCallbackSafely(pane.onCollapse, targetIndex, !isCollapsed);
               return ROUTE_RENDER;
             }
 
@@ -1573,7 +1565,7 @@ export function routeMouseWheel(
             overscan,
             measuredHeights,
           );
-          vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
+          invokeCallbackSafely(vlist.onScroll, r.nextScrollTop, [startIndex, endIndex]);
         }
         return ROUTE_RENDER;
       }
@@ -1677,7 +1669,11 @@ export function routeMouseWheel(
       });
 
       if (r.nextScrollY !== undefined || r.nextScrollX !== undefined) {
-        editor.onScroll(r.nextScrollY ?? editor.scrollTop, r.nextScrollX ?? editor.scrollLeft);
+        invokeCallbackSafely(
+          editor.onScroll,
+          r.nextScrollY ?? editor.scrollTop,
+          r.nextScrollX ?? editor.scrollLeft,
+        );
         return ROUTE_RENDER;
       }
       break;
@@ -1701,7 +1697,7 @@ export function routeMouseWheel(
         viewportHeight,
       });
       if (r.nextScrollY !== undefined) {
-        logs.onScroll(r.nextScrollY);
+        invokeCallbackSafely(logs.onScroll, r.nextScrollY);
         return ROUTE_RENDER;
       }
       break;
@@ -1726,7 +1722,7 @@ export function routeMouseWheel(
         viewportHeight,
       });
       if (r.nextScrollY !== undefined) {
-        diff.onScroll(r.nextScrollY);
+        invokeCallbackSafely(diff.onScroll, r.nextScrollY);
         return ROUTE_RENDER;
       }
       break;
