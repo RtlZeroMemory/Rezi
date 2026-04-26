@@ -1,8 +1,9 @@
 import { open, stat } from "node:fs/promises";
+import { StringDecoder } from "node:string_decoder";
 import type { TailSource, TailSourceFactory } from "@rezi-ui/core";
 
 const DEFAULT_POLL_MS = 200;
-const READ_CHUNK_BYTES = 64 * 1024;
+export const READ_CHUNK_BYTES = 64 * 1024;
 
 type SleepState = Readonly<{
   timer: ReturnType<typeof setTimeout> | null;
@@ -20,7 +21,12 @@ function isNodeErrorWithCode(error: unknown): error is Readonly<{ code: string }
   return typeof code === "string";
 }
 
-async function readUtf8Slice(filePath: string, start: number, end: number): Promise<string> {
+async function readUtf8Slice(
+  filePath: string,
+  start: number,
+  end: number,
+  decoder: StringDecoder,
+): Promise<string> {
   if (end <= start) return "";
 
   const handle = await open(filePath, "r");
@@ -33,7 +39,7 @@ async function readUtf8Slice(filePath: string, start: number, end: number): Prom
       const buffer = Buffer.allocUnsafe(bytesToRead);
       const { bytesRead } = await handle.read(buffer, 0, bytesToRead, offset);
       if (bytesRead <= 0) break;
-      output += buffer.toString("utf8", 0, bytesRead);
+      output += decoder.write(buffer.subarray(0, bytesRead));
       offset += bytesRead;
     }
     return output;
@@ -81,6 +87,7 @@ export const createNodeTailSource: TailSourceFactory<string> = (
     let initialized = false;
     let offset = 0;
     let carry = "";
+    let decoder = new StringDecoder("utf8");
 
     while (!closed) {
       let fileSize: number;
@@ -104,10 +111,11 @@ export const createNodeTailSource: TailSourceFactory<string> = (
         // File was truncated/rotated.
         offset = 0;
         carry = "";
+        decoder = new StringDecoder("utf8");
       }
 
       if (fileSize > offset) {
-        const delta = await readUtf8Slice(filePath, offset, fileSize);
+        const delta = await readUtf8Slice(filePath, offset, fileSize, decoder);
         offset = fileSize;
         const segments = `${carry}${delta}`.split(/\r?\n/);
         carry = segments.pop() ?? "";
