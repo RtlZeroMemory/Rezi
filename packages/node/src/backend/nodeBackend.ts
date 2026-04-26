@@ -563,7 +563,15 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   function handleWorkerExit(code: number | null): void {
     if (disposed) return;
     if (stopRequested) {
-      rejectPending(new Error("NodeBackend: stopped"));
+      if (code !== 0 && fatal === null) {
+        fatal = new ZrUiError(
+          "ZRUI_BACKEND_ERROR",
+          `worker exited unexpectedly: code=${String(code)}`,
+        );
+        failAll(fatal);
+      } else {
+        rejectPending(new Error("NodeBackend: stopped"));
+      }
     } else if (fatal === null) {
       const message =
         code === 0 && !started && startDef !== null && !startSettled
