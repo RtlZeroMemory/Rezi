@@ -584,6 +584,56 @@ test("backend: pollEvents recovers from oversized event batch (ZR_ERR_LIMIT)", a
   backend.dispose();
 });
 
+test("backend: clean unexpected worker exit rejects pending waiters", async () => {
+  const shim = new URL("./worker/testShims/exitZeroOnCapsNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { executionMode: "worker", fpsCap: 1000, maxEventBytes: 1024 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  try {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timeoutHandle = setTimeout(() => resolve(null), 1000);
+    });
+    const pending = Promise.allSettled([backend.pollEvents(), backend.getCaps()]);
+    const settled = await Promise.race([pending, timeout]);
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+
+    assert.ok(settled !== null, "worker exit should settle pending backend waiters");
+    for (const result of settled) {
+      assert.equal(result.status, "rejected");
+      assert.ok(result.reason instanceof ZrUiError);
+      assert.equal(result.reason.code, "ZRUI_BACKEND_ERROR");
+      assert.match(result.reason.message, /worker exited unexpectedly: code=0/);
+    }
+  } finally {
+    backend.dispose();
+  }
+});
+
+test("backend: non-zero worker exit during stop rejects stop", async () => {
+  const shim = new URL("./worker/testShims/exitNonZeroOnDestroyNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { executionMode: "worker", fpsCap: 1000, maxEventBytes: 1024 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  try {
+    await assert.rejects(
+      backend.stop(),
+      (error) =>
+        error instanceof ZrUiError &&
+        error.code === "ZRUI_BACKEND_ERROR" &&
+        /worker exited unexpectedly: code=7/.test(error.message),
+    );
+  } finally {
+    backend.dispose();
+  }
+});
+
 test("backend: maps fpsCap to native targetFps during init", async () => {
   const shim = new URL("./worker/testShims/targetFpsNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
