@@ -83,8 +83,8 @@ import type {
   LogsConsoleRenderCache,
   TableRenderCache,
 } from "./renderCaches.js";
-import { routeToolApprovalDialogKeyDown } from "./toolApprovalRouting.js";
 import { invokeCallbackSafely } from "./safeCallback.js";
+import { routeToolApprovalDialogKeyDown } from "./toolApprovalRouting.js";
 
 const UTF8_DECODER = new TextDecoder();
 const EMPTY_ROUTING: RoutingResult = Object.freeze({});
