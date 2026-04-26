@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-alpha.61",
-    "@rezi-ui/node": "0.1.0-alpha.61"
+    "@rezi-ui/core": "0.1.0-alpha.70",
+    "@rezi-ui/node": "0.1.0-alpha.70"
   }
 }

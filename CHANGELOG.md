@@ -6,10 +6,40 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.70] - 2026-04-26
+
+### Bug Fixes
+
+- **core/routing**: Isolated user callback failures across widget event routing so thrown app callbacks become deterministic dev warnings instead of destabilizing the render/input loop.
+- **core/modals**: Fixed modal mouse hit testing so blank modal space no longer routes presses to background widgets while non-modal layers above a modal remain clickable.
+- **node/backend**: Fixed unexpected worker exits so pending waiters reject with `ZRUI_BACKEND_ERROR`, including clean exits before waiter settlement and non-zero exits during shutdown.
+- **node/tail**: Preserved UTF-8 characters split across internal read chunks and polling iterations by keeping decoder state across tail reads.
+
+### CI / Tooling
+
+- **repo**: Removed stale repository noise and restored Biome import ordering so quality gates stay green after the routing fixes.
+
+### Merged Pull Requests
+
+- [#394](https://github.com/RtlZeroMemory/Rezi/pull/394) repo hygiene cleanup
+- [#395](https://github.com/RtlZeroMemory/Rezi/pull/395) repo hygiene follow-up
+- [#399](https://github.com/RtlZeroMemory/Rezi/pull/399) Fix modal mouse isolation
+- [#400](https://github.com/RtlZeroMemory/Rezi/pull/400) Fix widget callback isolation
+- [#401](https://github.com/RtlZeroMemory/Rezi/pull/401) Fix worker exit waiter rejection
+- [#402](https://github.com/RtlZeroMemory/Rezi/pull/402) Fix tail UTF-8 chunk decoding
+- [#403](https://github.com/RtlZeroMemory/Rezi/pull/403) Fix route engine import ordering
+
+## [0.1.0-alpha.69] - 2026-04-15
+
 ### Bug Fixes
 
 - **create-rezi/cli**: Fixed Windows nested installs by switching `create-rezi` to the standard `cross-spawn` process launcher and by resolving npm installs through the active npm entrypoint instead of relying on Git Bash shell resolution.
 - **create-rezi/minimal**: Replaced the invalid bare `+` keybinding in the minimal template with Windows-safe `=` / `shift+=` bindings while keeping `+` as an accepted command alias.
+
+### Merged Pull Requests
+
+- [#392](https://github.com/RtlZeroMemory/Rezi/pull/392) fix: isolate create-rezi nested installs on Windows
+- [#393](https://github.com/RtlZeroMemory/Rezi/pull/393) fix create-rezi Windows install tests
 
 ## [0.1.0-alpha.68] - 2026-04-15
 
