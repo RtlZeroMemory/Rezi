@@ -564,16 +564,12 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     if (disposed) return;
     if (stopRequested) {
       rejectPending(new Error("NodeBackend: stopped"));
-    }
-    if (code !== 0 && fatal === null) {
-      fatal = new ZrUiError(
-        "ZRUI_BACKEND_ERROR",
-        `worker exited unexpectedly: code=${String(code)}`,
-      );
-      failAll(fatal);
-    }
-    if (code === 0 && !started && fatal === null && startDef !== null && !startSettled) {
-      fatal = new ZrUiError("ZRUI_BACKEND_ERROR", "worker exited before ready handshake");
+    } else if (fatal === null) {
+      const message =
+        code === 0 && !started && startDef !== null && !startSettled
+          ? "worker exited before ready handshake"
+          : `worker exited unexpectedly: code=${String(code)}`;
+      fatal = new ZrUiError("ZRUI_BACKEND_ERROR", message);
       failAll(fatal);
     }
 

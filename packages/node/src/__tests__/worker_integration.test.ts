@@ -584,6 +584,30 @@ test("backend: pollEvents recovers from oversized event batch (ZR_ERR_LIMIT)", a
   backend.dispose();
 });
 
+test("backend: clean unexpected worker exit rejects pending waiters", async () => {
+  const shim = new URL("./worker/testShims/exitZeroOnCapsNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { executionMode: "worker", fpsCap: 1000, maxEventBytes: 1024 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  try {
+    const pending = Promise.allSettled([backend.pollEvents(), backend.getCaps()]);
+    const settled = await Promise.race([pending, delay(1000).then(() => null)]);
+
+    assert.ok(settled !== null, "worker exit should settle pending backend waiters");
+    for (const result of settled) {
+      assert.equal(result.status, "rejected");
+      assert.ok(result.reason instanceof ZrUiError);
+      assert.equal(result.reason.code, "ZRUI_BACKEND_ERROR");
+      assert.match(result.reason.message, /worker exited unexpectedly: code=0/);
+    }
+  } finally {
+    backend.dispose();
+  }
+});
+
 test("backend: maps fpsCap to native targetFps during init", async () => {
   const shim = new URL("./worker/testShims/targetFpsNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
