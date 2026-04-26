@@ -327,8 +327,7 @@ export function routeEngineEventImpl(
   const prevPressedId = state.pressedId;
 
   const focusedId = state.focusState.focusedId;
-  const mouseTargets =
-    event.kind === "mouse" ? resolveMouseTargets(ctx, event.x, event.y) : null;
+  const mouseTargets = event.kind === "mouse" ? resolveMouseTargets(ctx, event.x, event.y) : null;
   const mouseTargetId = mouseTargets?.focusableId ?? null;
   const mouseTargetAnyId = mouseTargets?.anyId ?? null;
   let localNeedsRender = false;
