@@ -30,6 +30,7 @@ import {
   normalizeSelection,
 } from "../../widgets/codeEditor.js";
 import type { CodeEditorProps } from "../../widgets/types.js";
+import { invokeCallbackSafely } from "./safeCallback.js";
 
 export type CodeEditorRoutingResult = Readonly<{ needsRender: boolean }>;
 
@@ -67,10 +68,13 @@ export function routeCodeEditorKeyDown(
         })
       : null;
 
-    if (isShift) editor.onSelectionChange(nextSelection);
-    else if (editor.selection !== null) editor.onSelectionChange(null);
+    if (isShift) {
+      invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, nextSelection);
+    } else if (editor.selection !== null) {
+      invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+    }
 
-    editor.onChange(editor.lines, nextCursor);
+    invokeCallbackSafely("codeEditor.onChange", editor.onChange, editor.lines, nextCursor);
 
     let nextScrollTop = editor.scrollTop;
     nextScrollTop = ensureCursorVisible(nextScrollTop, nextCursor, viewportHeight);
@@ -82,21 +86,21 @@ export function routeCodeEditorKeyDown(
     }
 
     if (nextScrollTop !== editor.scrollTop || nextScrollLeft !== editor.scrollLeft) {
-      editor.onScroll(nextScrollTop, nextScrollLeft);
+      invokeCallbackSafely("codeEditor.onScroll", editor.onScroll, nextScrollTop, nextScrollLeft);
     }
   };
 
   // Undo/redo shortcuts
   if (isCtrl && event.key === 90 /* Z */) {
     if (isShift) {
-      editor.onRedo?.();
+      invokeCallbackSafely("codeEditor.onRedo", editor.onRedo);
     } else {
-      editor.onUndo?.();
+      invokeCallbackSafely("codeEditor.onUndo", editor.onUndo);
     }
     return Object.freeze({ needsRender: true });
   }
   if (isCtrl && event.key === 89 /* Y */) {
-    editor.onRedo?.();
+    invokeCallbackSafely("codeEditor.onRedo", editor.onRedo);
     return Object.freeze({ needsRender: true });
   }
 
@@ -104,14 +108,23 @@ export function routeCodeEditorKeyDown(
   if (isCtrl && event.key === 65 /* A */) {
     const lastLine = Math.max(0, editor.lines.length - 1);
     const endCol = (editor.lines[lastLine] ?? "").length;
-    editor.onSelectionChange(
+    invokeCallbackSafely(
+      "codeEditor.onSelectionChange",
+      editor.onSelectionChange,
       Object.freeze({
         anchor: Object.freeze({ line: 0, column: 0 }),
         active: Object.freeze({ line: lastLine, column: endCol }),
       }),
     );
-    editor.onChange(editor.lines, Object.freeze({ line: lastLine, column: endCol }));
-    editor.onScroll(
+    invokeCallbackSafely(
+      "codeEditor.onChange",
+      editor.onChange,
+      editor.lines,
+      Object.freeze({ line: lastLine, column: endCol }),
+    );
+    invokeCallbackSafely(
+      "codeEditor.onScroll",
+      editor.onScroll,
       ensureCursorVisible(editor.scrollTop, { line: lastLine, column: endCol }, viewportHeight),
       editor.scrollLeft,
     );
@@ -124,7 +137,12 @@ export function routeCodeEditorKeyDown(
     const maxScroll = Math.max(0, editor.lines.length - viewportHeight);
     const nextScrollTop = Math.max(0, Math.min(maxScroll, editor.scrollTop + dir * viewportHeight));
     if (nextScrollTop !== editor.scrollTop) {
-      editor.onScroll(nextScrollTop, editor.scrollLeft);
+      invokeCallbackSafely(
+        "codeEditor.onScroll",
+        editor.onScroll,
+        nextScrollTop,
+        editor.scrollLeft,
+      );
       return Object.freeze({ needsRender: true });
     }
     return Object.freeze({ needsRender: false });
@@ -143,8 +161,13 @@ export function routeCodeEditorKeyDown(
       const nextLines = isShift
         ? dedentLines(editor.lines, Object.freeze([startLine, endLine]), tabSize)
         : indentLines(editor.lines, Object.freeze([startLine, endLine]), tabSize, insertSpaces);
-      editor.onSelectionChange(null);
-      editor.onChange(nextLines, clampCursor(editor.cursor));
+      invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+      invokeCallbackSafely(
+        "codeEditor.onChange",
+        editor.onChange,
+        nextLines,
+        clampCursor(editor.cursor),
+      );
       return Object.freeze({ needsRender: true });
     }
 
@@ -167,7 +190,12 @@ export function routeCodeEditorKeyDown(
           line: editor.cursor.line,
           column: Math.max(0, editor.cursor.column - Math.min(editor.cursor.column, removed)),
         });
-        editor.onChange(nextLines, clampCursor(nextCursor));
+        invokeCallbackSafely(
+          "codeEditor.onChange",
+          editor.onChange,
+          nextLines,
+          clampCursor(nextCursor),
+        );
         return Object.freeze({ needsRender: true });
       }
       return Object.freeze({ needsRender: false });
@@ -180,8 +208,10 @@ export function routeCodeEditorKeyDown(
       base ? base.cursor : editor.cursor,
       indent,
     );
-    if (editor.selection !== null) editor.onSelectionChange(null);
-    editor.onChange(next.lines, next.cursor);
+    if (editor.selection !== null) {
+      invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+    }
+    invokeCallbackSafely("codeEditor.onChange", editor.onChange, next.lines, next.cursor);
     return Object.freeze({ needsRender: true });
   }
 
@@ -192,8 +222,10 @@ export function routeCodeEditorKeyDown(
       : event.key === ZR_KEY_BACKSPACE
         ? deleteCharBefore(editor.lines, editor.cursor)
         : deleteCharAfter(editor.lines, editor.cursor);
-    if (editor.selection !== null) editor.onSelectionChange(null);
-    editor.onChange(next.lines, next.cursor);
+    if (editor.selection !== null) {
+      invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+    }
+    invokeCallbackSafely("codeEditor.onChange", editor.onChange, next.lines, next.cursor);
     return Object.freeze({ needsRender: true });
   }
 
@@ -204,8 +236,10 @@ export function routeCodeEditorKeyDown(
     const cursor = base ? base.cursor : editor.cursor;
     const indent = computeAutoIndent(lines, cursor, tabSize);
     const next = insertText(lines, cursor, `\n${indent}`);
-    if (editor.selection !== null) editor.onSelectionChange(null);
-    editor.onChange(next.lines, next.cursor);
+    if (editor.selection !== null) {
+      invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+    }
+    invokeCallbackSafely("codeEditor.onChange", editor.onChange, next.lines, next.cursor);
     return Object.freeze({ needsRender: true });
   }
 

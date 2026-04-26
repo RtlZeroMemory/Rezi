@@ -84,6 +84,7 @@ import type {
   TableRenderCache,
 } from "./renderCaches.js";
 import { routeToolApprovalDialogKeyDown } from "./toolApprovalRouting.js";
+import { invokeCallbackSafely } from "./safeCallback.js";
 
 const UTF8_DECODER = new TextDecoder();
 const EMPTY_ROUTING: RoutingResult = Object.freeze({});
@@ -495,8 +496,8 @@ export function routeEngineEventImpl(
         if (isCut && editor.readOnly !== true) {
           const cut = selection ? deleteRange(editor.lines, selection) : null;
           if (!cut) return ROUTE_NO_RENDER_CONSUMED;
-          editor.onSelectionChange(null);
-          editor.onChange(cut.lines, cut.cursor);
+          invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+          invokeCallbackSafely("codeEditor.onChange", editor.onChange, cut.lines, cut.cursor);
           return ROUTE_RENDER;
         }
         return ROUTE_NO_RENDER_CONSUMED;
@@ -612,8 +613,8 @@ export function routeEngineEventImpl(
             : ""
           : UTF8_DECODER.decode(event.bytes);
       if (append.length > 0) {
-        palette.onChange(palette.query + append);
-        palette.onSelectionChange?.(0);
+        invokeCallbackSafely("commandPalette.onChange", palette.onChange, palette.query + append);
+        invokeCallbackSafely("commandPalette.onSelectionChange", palette.onSelectionChange, 0);
         return ROUTE_RENDER;
       }
     }
@@ -633,8 +634,10 @@ export function routeEngineEventImpl(
           base ? base.cursor : editor.cursor,
           insert,
         );
-        if (editor.selection !== null) editor.onSelectionChange(null);
-        editor.onChange(next.lines, next.cursor);
+        if (editor.selection !== null) {
+          invokeCallbackSafely("codeEditor.onSelectionChange", editor.onSelectionChange, null);
+        }
+        invokeCallbackSafely("codeEditor.onChange", editor.onChange, next.lines, next.cursor);
         return ROUTE_RENDER;
       }
     }
@@ -823,7 +826,7 @@ export function routeEngineEventImpl(
       const checkbox = ctx.checkboxById.get(res.action.id);
       if (checkbox && typeof checkbox.onChange === "function" && checkbox.disabled !== true) {
         const nextChecked = !checkbox.checked;
-        checkbox.onChange(nextChecked);
+        invokeCallbackSafely("checkbox.onChange", checkbox.onChange, nextChecked);
         return Object.freeze({
           needsRender,
           action: Object.freeze({
@@ -835,9 +838,9 @@ export function routeEngineEventImpl(
       }
 
       const btn = ctx.buttonById.get(res.action.id);
-      if (btn?.onPress) btn.onPress();
+      if (btn?.onPress) invokeCallbackSafely("button.onPress", btn.onPress);
       const link = ctx.linkById.get(res.action.id);
-      if (link?.onPress) link.onPress();
+      if (link?.onPress) invokeCallbackSafely("link.onPress", link.onPress);
     }
     return Object.freeze({ needsRender, action: res.action });
   }

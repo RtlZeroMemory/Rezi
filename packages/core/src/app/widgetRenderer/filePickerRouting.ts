@@ -14,6 +14,7 @@ import {
   readFileNodeFlatCache,
   readFilePickerFlatCache,
 } from "./fileNodeCache.js";
+import { invokeCallbackSafely } from "./safeCallback.js";
 
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 
@@ -145,12 +146,12 @@ export function routeFileTreeExplorerKeyDown(
 
   if (r.nodeToSelect) {
     const found = flatNodes.find((n) => n.key === r.nodeToSelect);
-    if (found) fte.onSelect(found.node);
+    if (found) invokeCallbackSafely("fileTreeExplorer.onSelect", fte.onSelect, found.node);
   }
 
   if (r.nodeToActivate) {
     const found = flatNodes.find((n) => n.key === r.nodeToActivate);
-    if (found) fte.onPress(found.node);
+    if (found) invokeCallbackSafely("fileTreeExplorer.onPress", fte.onPress, found.node);
   }
 
   if (r.nextExpanded !== undefined) {
@@ -162,7 +163,9 @@ export function routeFileTreeExplorerKeyDown(
 
     for (const k of diffs) {
       const found = flatNodes.find((n) => n.key === k);
-      if (found) fte.onChange(found.node, next.has(k));
+      if (found) {
+        invokeCallbackSafely("fileTreeExplorer.onChange", fte.onChange, found.node, next.has(k));
+      }
     }
   }
 
@@ -220,7 +223,11 @@ export function routeFilePickerKeyDown(
     fp.onSelectionChange
   ) {
     const nextSelection = toggleFilePickerSelection(fp.selection, focusedKey);
-    fp.onSelectionChange(nextSelection.selection);
+    invokeCallbackSafely(
+      "filePicker.onSelectionChange",
+      fp.onSelectionChange,
+      nextSelection.selection,
+    );
     return true;
   }
 
@@ -242,7 +249,7 @@ export function routeFilePickerKeyDown(
   }
 
   if (r.nodeToSelect) {
-    fp.onSelect(r.nodeToSelect);
+    invokeCallbackSafely("filePicker.onSelect", fp.onSelect, r.nodeToSelect);
   }
 
   if (r.nodeToActivate) {
@@ -250,9 +257,9 @@ export function routeFilePickerKeyDown(
     if (found) {
       if (found.hasChildren) {
         const isExpanded = fp.expandedPaths.includes(found.key);
-        fp.onChange(found.key, !isExpanded);
+        invokeCallbackSafely("filePicker.onChange", fp.onChange, found.key, !isExpanded);
       } else if (found.node.type !== "directory") {
-        fp.onPress(found.key);
+        invokeCallbackSafely("filePicker.onPress", fp.onPress, found.key);
       }
     }
   }
@@ -264,7 +271,7 @@ export function routeFilePickerKeyDown(
     for (const k of next) if (!prev.has(k)) diffs.push(k);
     for (const k of prev) if (!next.has(k)) diffs.push(k);
     for (const k of diffs) {
-      fp.onChange(k, next.has(k));
+      invokeCallbackSafely("filePicker.onChange", fp.onChange, k, next.has(k));
     }
   }
 

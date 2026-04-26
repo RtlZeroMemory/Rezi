@@ -10,6 +10,7 @@ import {
 } from "../../keybindings/keyCodes.js";
 import { getFilteredItems } from "../../widgets/commandPalette.js";
 import type { CommandItem, CommandPaletteProps } from "../../widgets/types.js";
+import { invokeCallbackSafely } from "./safeCallback.js";
 
 function popLastCodePoint(s: string): string {
   if (s.length === 0) return s;
@@ -33,7 +34,7 @@ export function routeCommandPaletteKeyDown(
   if (palette.open !== true) return false;
 
   if (event.key === ZR_KEY_ESCAPE) {
-    palette.onClose();
+    invokeCallbackSafely("commandPalette.onClose", palette.onClose);
     return true;
   }
 
@@ -68,7 +69,9 @@ export function routeCommandPaletteKeyDown(
         (keyDown ? findNextEnabledIndex(palette.selectedIndex, 1) : null) ??
         findFirstEnabledIndex() ??
         0;
-      if (next !== palette.selectedIndex) palette.onSelectionChange(next);
+      if (next !== palette.selectedIndex) {
+        invokeCallbackSafely("commandPalette.onSelectionChange", palette.onSelectionChange, next);
+      }
     }
     return true;
   }
@@ -95,8 +98,8 @@ export function routeCommandPaletteKeyDown(
         prefixes[(idx + 1 + prefixes.length) % prefixes.length] ?? prefixes[0] ?? "";
       const nextQuery = bare.length > 0 ? `${nextPrefix} ${bare}` : nextPrefix;
 
-      palette.onChange(nextQuery);
-      if (palette.onSelectionChange) palette.onSelectionChange(0);
+      invokeCallbackSafely("commandPalette.onChange", palette.onChange, nextQuery);
+      invokeCallbackSafely("commandPalette.onSelectionChange", palette.onSelectionChange, 0);
       return true;
     }
   }
@@ -113,15 +116,19 @@ export function routeCommandPaletteKeyDown(
           ? items[fallback]
           : null;
     if (item && item.disabled !== true) {
-      palette.onSelect(item);
-      palette.onClose();
+      invokeCallbackSafely("commandPalette.onSelect", palette.onSelect, item);
+      invokeCallbackSafely("commandPalette.onClose", palette.onClose);
     }
     return true;
   }
 
   if (event.key === ZR_KEY_BACKSPACE && palette.query.length > 0) {
-    palette.onChange(popLastCodePoint(palette.query));
-    if (palette.onSelectionChange) palette.onSelectionChange(0);
+    invokeCallbackSafely(
+      "commandPalette.onChange",
+      palette.onChange,
+      popLastCodePoint(palette.query),
+    );
+    invokeCallbackSafely("commandPalette.onSelectionChange", palette.onSelectionChange, 0);
     return true;
   }
 
