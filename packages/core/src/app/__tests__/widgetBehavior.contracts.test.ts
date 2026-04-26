@@ -359,6 +359,45 @@ describe("modal, overlay, and focus behavior contracts", () => {
     assert.equal(renderer.getFocusedId(), "cancel");
   });
 
+  test("blank modal space does not route clicks to background widgets", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let backgroundPresses = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [
+          ui.button({
+            id: "background",
+            label: "Background action",
+            onPress: () => {
+              backgroundPresses++;
+            },
+          }),
+        ]),
+        ui.modal({
+          id: "confirm",
+          title: "Confirm",
+          width: "full",
+          height: "full",
+          initialFocus: "cancel",
+          closeOnBackdrop: false,
+          content: ui.text("Confirm action"),
+          actions: [ui.button({ id: "cancel", label: "Cancel" })],
+        }),
+      ]);
+
+    submit(renderer, view);
+    const bgCenter = centerOf(renderer, "background");
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 4));
+
+    assert.equal(backgroundPresses, 0);
+    assert.equal(renderer.getFocusedId(), "cancel");
+  });
+
   test("Escape closes a dialog and restores focus to returnFocusTo", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
