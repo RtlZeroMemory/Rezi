@@ -9,7 +9,7 @@ import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { FocusManagerState } from "../../runtime/focus.js";
 import type { InputSelection, InputUndoStack } from "../../runtime/inputEditor.js";
 import type { InstanceId } from "../../runtime/instance.js";
-import type { LayerRegistry } from "../../runtime/layers.js";
+import { type LayerRegistry, hitTestLayers } from "../../runtime/layers.js";
 import type {
   TableStateStore,
   TreeStateStore,
@@ -95,6 +95,8 @@ const ROUTE_NO_RENDER_CONSUMED: RouteEngineEventOutcome = Object.freeze({
 });
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const EMPTY_COMMAND_ITEMS: readonly CommandItem[] = Object.freeze([]);
+const EMPTY_MOUSE_TARGETS: Readonly<{ focusableId: string | null; anyId: string | null }> =
+  Object.freeze({ focusableId: null, anyId: null });
 
 type PressedDropdown = Readonly<{ id: string; itemId: string }> | null;
 type PressedVirtualList = Readonly<{ id: string; index: number }> | null;
@@ -194,13 +196,18 @@ function resolveMouseTargets(
   y: number,
 ): Readonly<{ focusableId: string | null; anyId: string | null }> {
   if (!ctx.committedRoot || !ctx.layoutTree) {
-    return Object.freeze({ focusableId: null, anyId: null });
+    return EMPTY_MOUSE_TARGETS;
   }
 
   const topmostModal = ctx.layerRegistry.getTopmostModal();
-  if (topmostModal && containsPoint(topmostModal.rect, x, y)) {
+  const layerHit = topmostModal ? hitTestLayers(ctx.layerRegistry, x, y) : null;
+  if (
+    topmostModal &&
+    layerHit?.layer?.id === topmostModal.id &&
+    containsPoint(topmostModal.rect, x, y)
+  ) {
     const modalLayout = findLayoutNodeById(ctx.layoutTree, topmostModal.id);
-    if (!modalLayout) return Object.freeze({ focusableId: null, anyId: null });
+    if (!modalLayout) return EMPTY_MOUSE_TARGETS;
     return Object.freeze({
       focusableId: hitTestFocusable(modalLayout.vnode, modalLayout, x, y),
       anyId: hitTestAnyId(modalLayout, x, y),

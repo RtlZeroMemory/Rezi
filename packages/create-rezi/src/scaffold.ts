@@ -42,7 +42,8 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "starship",
     label: "Starship Command Console",
-    description: "Larger command-console showcase for routing, animation, charts, forms, and overlays",
+    description:
+      "Larger command-console showcase for routing, animation, charts, forms, and overlays",
     safetyTag: "safe-default",
     safetyNote:
       "Feature-rich showcase template with moderate CPU usage from animation hooks and live telemetry.",
