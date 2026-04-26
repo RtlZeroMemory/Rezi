@@ -59,6 +59,32 @@ test("createNodeTailSource yields existing + appended lines when fromEnd=false",
   }
 });
 
+test("createNodeTailSource preserves UTF-8 characters split across read chunks", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "rezi-tail-"));
+  const filePath = join(dir, "utf8.log");
+  let source: ReturnType<typeof createNodeTailSource> | undefined;
+
+  try {
+    const line = `${"a".repeat(64 * 1024 - 1)}😀`;
+    await writeFile(filePath, `${line}\n`, "utf8");
+
+    source = createNodeTailSource(filePath, { fromEnd: false, pollMs: 10 });
+    const iterator = source[Symbol.asyncIterator]();
+
+    const first = await nextWithTimeout(iterator);
+    assert.equal(first.done, false);
+    assert.equal(first.value, line);
+    assert.equal(first.value.includes("\uFFFD"), false);
+
+    source.close?.();
+    const done = await nextWithTimeout(iterator);
+    assert.equal(done.done, true);
+  } finally {
+    source?.close?.();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("createNodeTailSource skips initial contents when fromEnd=true", async () => {
   const dir = await mkdtemp(join(tmpdir(), "rezi-tail-"));
   const filePath = join(dir, "events.log");

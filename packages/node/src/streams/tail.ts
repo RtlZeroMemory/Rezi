@@ -1,4 +1,5 @@
 import { open, stat } from "node:fs/promises";
+import { StringDecoder } from "node:string_decoder";
 import type { TailSource, TailSourceFactory } from "@rezi-ui/core";
 
 const DEFAULT_POLL_MS = 200;
@@ -26,6 +27,7 @@ async function readUtf8Slice(filePath: string, start: number, end: number): Prom
   const handle = await open(filePath, "r");
   let offset = start;
   let output = "";
+  const decoder = new StringDecoder("utf8");
 
   try {
     while (offset < end) {
@@ -33,10 +35,10 @@ async function readUtf8Slice(filePath: string, start: number, end: number): Prom
       const buffer = Buffer.allocUnsafe(bytesToRead);
       const { bytesRead } = await handle.read(buffer, 0, bytesToRead, offset);
       if (bytesRead <= 0) break;
-      output += buffer.toString("utf8", 0, bytesRead);
+      output += decoder.write(buffer.subarray(0, bytesRead));
       offset += bytesRead;
     }
-    return output;
+    return output + decoder.end();
   } finally {
     await handle.close();
   }
