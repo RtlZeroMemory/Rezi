@@ -359,6 +359,99 @@ describe("modal, overlay, and focus behavior contracts", () => {
     assert.equal(renderer.getFocusedId(), "cancel");
   });
 
+  test("blank modal space does not route clicks to background widgets", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let backgroundPresses = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [
+          ui.button({
+            id: "background",
+            label: "Background action",
+            onPress: () => {
+              backgroundPresses++;
+            },
+          }),
+        ]),
+        ui.modal({
+          id: "confirm",
+          title: "Confirm",
+          width: "full",
+          height: "full",
+          initialFocus: "cancel",
+          closeOnBackdrop: false,
+          content: ui.text("Confirm action"),
+          actions: [ui.button({ id: "cancel", label: "Cancel" })],
+        }),
+      ]);
+
+    submit(renderer, view);
+    const bgCenter = centerOf(renderer, "background");
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 4));
+
+    assert.equal(backgroundPresses, 0);
+    assert.equal(renderer.getFocusedId(), "cancel");
+  });
+
+  test("top layer above a modal still receives mouse presses", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let backgroundPresses = 0;
+    let topLayerPresses = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [
+          ui.button({
+            id: "background",
+            label: "Background action",
+            onPress: () => {
+              backgroundPresses++;
+            },
+          }),
+        ]),
+        ui.modal({
+          id: "confirm",
+          title: "Confirm",
+          width: "full",
+          height: "full",
+          initialFocus: "cancel",
+          closeOnBackdrop: false,
+          content: ui.text("Confirm action"),
+          actions: [ui.button({ id: "cancel", label: "Cancel" })],
+        }),
+        ui.layer({
+          id: "top-layer",
+          zIndex: 10_000,
+          content: ui.column({}, [
+            ui.button({
+              id: "top-action",
+              label: "Top action",
+              onPress: () => {
+                topLayerPresses++;
+              },
+            }),
+          ]),
+        }),
+      ]);
+
+    submit(renderer, view);
+    const topCenter = centerOf(renderer, "top-action");
+    renderer.routeEngineEvent(mouseEvent(topCenter.x, topCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(topCenter.x, topCenter.y, 4));
+
+    assert.equal(topLayerPresses, 1);
+    assert.equal(backgroundPresses, 0);
+    assert.equal(renderer.getFocusedId(), "top-action");
+  });
+
   test("Escape closes a dialog and restores focus to returnFocusTo", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),

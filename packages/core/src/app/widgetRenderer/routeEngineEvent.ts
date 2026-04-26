@@ -9,7 +9,7 @@ import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { FocusManagerState } from "../../runtime/focus.js";
 import type { InputSelection, InputUndoStack } from "../../runtime/inputEditor.js";
 import type { InstanceId } from "../../runtime/instance.js";
-import type { LayerRegistry } from "../../runtime/layers.js";
+import { type LayerRegistry, hitTestLayers } from "../../runtime/layers.js";
 import type {
   TableStateStore,
   TreeStateStore,
@@ -95,6 +95,8 @@ const ROUTE_NO_RENDER_CONSUMED: RouteEngineEventOutcome = Object.freeze({
 });
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const EMPTY_COMMAND_ITEMS: readonly CommandItem[] = Object.freeze([]);
+const EMPTY_MOUSE_TARGETS: Readonly<{ focusableId: string | null; anyId: string | null }> =
+  Object.freeze({ focusableId: null, anyId: null });
 
 type PressedDropdown = Readonly<{ id: string; itemId: string }> | null;
 type PressedVirtualList = Readonly<{ id: string; index: number }> | null;
@@ -163,6 +165,59 @@ function extendMousePressableIds(
   }
 
   return merged ?? pressableIds;
+}
+
+function readNodeId(layout: LayoutTree): string | null {
+  const raw = (layout.vnode.props as { id?: unknown }).id;
+  return typeof raw === "string" && raw.length > 0 ? raw : null;
+}
+
+function findLayoutNodeById(layout: LayoutTree, id: string): LayoutTree | null {
+  const stack: LayoutTree[] = [layout];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) continue;
+    if (readNodeId(node) === id) return node;
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      const child = node.children[i];
+      if (child) stack.push(child);
+    }
+  }
+  return null;
+}
+
+function containsPoint(rect: Rect, x: number, y: number): boolean {
+  return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
+}
+
+function resolveMouseTargets(
+  ctx: RouteEngineEventContext,
+  x: number,
+  y: number,
+): Readonly<{ focusableId: string | null; anyId: string | null }> {
+  if (!ctx.committedRoot || !ctx.layoutTree) {
+    return EMPTY_MOUSE_TARGETS;
+  }
+
+  const topmostModal = ctx.layerRegistry.getTopmostModal();
+  const layerHit = topmostModal ? hitTestLayers(ctx.layerRegistry, x, y) : null;
+  if (
+    topmostModal &&
+    layerHit?.layer?.id === topmostModal.id &&
+    containsPoint(topmostModal.rect, x, y)
+  ) {
+    const modalLayout = findLayoutNodeById(ctx.layoutTree, topmostModal.id);
+    if (!modalLayout) return EMPTY_MOUSE_TARGETS;
+    return Object.freeze({
+      focusableId: hitTestFocusable(modalLayout.vnode, modalLayout, x, y),
+      anyId: hitTestAnyId(modalLayout, x, y),
+    });
+  }
+
+  return Object.freeze({
+    focusableId: hitTestFocusable(ctx.committedRoot.vnode, ctx.layoutTree, x, y),
+    anyId: hitTestAnyId(ctx.layoutTree, x, y),
+  });
 }
 
 export type RouteEngineEventOutcome = Readonly<{
@@ -279,12 +334,9 @@ export function routeEngineEventImpl(
   const prevPressedId = state.pressedId;
 
   const focusedId = state.focusState.focusedId;
-  const mouseTargetId =
-    event.kind === "mouse"
-      ? hitTestFocusable(ctx.committedRoot.vnode, ctx.layoutTree, event.x, event.y)
-      : null;
-  const mouseTargetAnyId =
-    event.kind === "mouse" ? hitTestAnyId(ctx.layoutTree, event.x, event.y) : null;
+  const mouseTargets = event.kind === "mouse" ? resolveMouseTargets(ctx, event.x, event.y) : null;
+  const mouseTargetId = mouseTargets?.focusableId ?? null;
+  const mouseTargetAnyId = mouseTargets?.anyId ?? null;
   let localNeedsRender = false;
 
   // Overlay routing: dropdown key navigation, layer/modal ESC close, and modal backdrop blocking.
