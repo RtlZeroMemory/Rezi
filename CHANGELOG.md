@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.71] - 2026-04-27
+
+### Documentation
+
+- **repo**: Fixed root README links to point at the current Rezi documentation paths.
+
+### Merged Pull Requests
+
+- [#404](https://github.com/RtlZeroMemory/Rezi/pull/404) Fix README documentation links
+
 ## [0.1.0-alpha.70] - 2026-04-26
 
 ### Bug Fixes

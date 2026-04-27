@@ -11,8 +11,8 @@
     "test": "tsx --test src/__tests__/*.test.ts"
   },
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-alpha.70",
-    "@rezi-ui/node": "0.1.0-alpha.70"
+    "@rezi-ui/core": "0.1.0-alpha.71",
+    "@rezi-ui/node": "0.1.0-alpha.71"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
