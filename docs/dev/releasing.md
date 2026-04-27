@@ -121,6 +121,10 @@ current release gate.
    - `bun`
    - native prebuild jobs
    - `publish (npm)`
+7. Confirm the GitHub release is visible as `Latest`. Rezi alpha versions use
+   semver prerelease identifiers in the tag/package version, but the GitHub
+   release itself should not be marked as a prerelease because GitHub hides
+   prereleases from the repository-level latest-release badge.
 
 ## Publishing Requirements
 

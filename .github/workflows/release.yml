@@ -265,6 +265,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          # Semver alpha tags already communicate pre-release status. Keep the
+          # GitHub release visible as "Latest" so users can find current builds.
+          prerelease: false
+          make_latest: true
 
   native-prebuild:
     name: native prebuild (${{ matrix.id }})
