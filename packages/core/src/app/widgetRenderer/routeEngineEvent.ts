@@ -656,6 +656,9 @@ export function routeEngineEventImpl(
       rectById: ctx.rectById,
       focusedActionById: ctx.toolApprovalFocusedActionById,
       pressedToolApproval: state.pressedToolApproval,
+      requestRender: () => {
+        localNeedsRender = true;
+      },
       setPressedToolApproval: (next) => {
         state.pressedToolApproval = next;
       },

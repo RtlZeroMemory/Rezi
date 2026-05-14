@@ -469,18 +469,6 @@ export function rebuildRoutingWidgetMapsAndOverlayState(
         });
         break;
       }
-      case "toolApprovalDialog": {
-        const p = v.props as ToolApprovalDialogProps;
-        if (p.open === true) {
-          registerToolApprovalDialogLayer(
-            params,
-            p.id,
-            params.getRectForInstance(cur.instanceId),
-            overlaySeq++,
-          );
-        }
-        break;
-      }
       case "modal": {
         const p = v.props as {
           id?: unknown;

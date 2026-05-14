@@ -338,7 +338,8 @@ export function routeVirtualListKeyDown(
     const totalHeight = getTotalHeight(vlist.items, itemHeight, measuredHeights);
     const clampedScrollTop = clampScrollTop(scrollTop, totalHeight, state.viewportHeight);
     const maxScrollTop = clampScrollTop(totalHeight, totalHeight, state.viewportHeight);
-    if (maxScrollTop - clampedScrollTop <= 1) return true;
+    const followsTail = followIndex >= vlist.items.length - 1;
+    if (followsTail && maxScrollTop - clampedScrollTop <= 1) return true;
     const offset = getItemOffset(vlist.items, itemHeight, followIndex, measuredHeights);
     const height = getItemHeight(vlist.items, itemHeight, followIndex, measuredHeights);
     const viewportBottom = clampedScrollTop + state.viewportHeight;

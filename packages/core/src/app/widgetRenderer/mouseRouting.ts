@@ -136,6 +136,7 @@ type RouteToolApprovalDialogMouseContext = Readonly<{
   rectById: ReadonlyMap<string, Rect>;
   focusedActionById: Map<string, ToolApprovalAction>;
   pressedToolApproval: Readonly<{ id: string; action: ToolApprovalAction }> | null;
+  requestRender: () => void;
   setPressedToolApproval: (
     next: Readonly<{ id: string; action: ToolApprovalAction }> | null,
   ) => void;
@@ -786,7 +787,9 @@ export function routeToolApprovalDialogMouseClick(
       : null;
 
   if (event.mouseKind === 3) {
+    const pressed = ctx.pressedToolApproval;
     ctx.setPressedToolApproval(null);
+    if (pressed) ctx.requestRender();
     if (!targetId || !dialog || !rect || action === null) return false;
     ctx.focusedActionById.set(targetId, action);
     ctx.setPressedToolApproval(Object.freeze({ id: targetId, action }));
@@ -796,6 +799,7 @@ export function routeToolApprovalDialogMouseClick(
   const pressed = ctx.pressedToolApproval;
   ctx.setPressedToolApproval(null);
   if (!pressed || !targetId || pressed.id !== targetId || action !== pressed.action || !dialog) {
+    if (pressed) ctx.requestRender();
     return false;
   }
 
@@ -1653,7 +1657,8 @@ export function routeMouseWheel(
             );
             const clampedScrollTop = clampScrollTop(r.nextScrollTop, totalHeight, state.viewportHeight);
             const maxScrollTop = clampScrollTop(totalHeight, totalHeight, state.viewportHeight);
-            if (maxScrollTop - clampedScrollTop <= 1) {
+            const followsTail = followIndex >= vlist.items.length - 1;
+            if (followsTail && maxScrollTop - clampedScrollTop <= 1) {
               stickyFollowActive = true;
             } else {
               const offset = getItemOffset(vlist.items, itemHeight, followIndex, measuredHeights);
