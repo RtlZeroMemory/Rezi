@@ -691,6 +691,74 @@ describe("renderer regressions", () => {
     );
   });
 
+  test("virtualList sticky ensureVisible follows tail while active", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const id = "vl-sticky-tail";
+    virtualListStore.set(id, { stickyFollowActive: true, scrollTop: 0 });
+
+    const bytes = renderBytes(
+      ui.virtualList({
+        id,
+        items: Array.from({ length: 10 }, (_, i) => `item-${String(i)}`),
+        itemHeight: 1,
+        ensureVisibleIndex: 9,
+        ensureVisibleMode: "sticky",
+        renderItem: (item) => ui.text(item),
+      }),
+      { cols: 20, rows: 5 },
+      { virtualListStore },
+    );
+
+    const strings = parseInternedStrings(bytes);
+    assert.equal(strings.some((s) => s.includes("item-9")), true);
+    assert.equal(virtualListStore.get(id).scrollTop, 5);
+  });
+
+  test("virtualList sticky ensureVisible does not yank when follow is disabled", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const id = "vl-sticky-paused";
+    virtualListStore.set(id, { stickyFollowActive: false, scrollTop: 0 });
+
+    const bytes = renderBytes(
+      ui.virtualList({
+        id,
+        items: Array.from({ length: 10 }, (_, i) => `item-${String(i)}`),
+        itemHeight: 1,
+        ensureVisibleIndex: 9,
+        ensureVisibleMode: "sticky",
+        renderItem: (item) => ui.text(item),
+      }),
+      { cols: 20, rows: 5 },
+      { virtualListStore },
+    );
+
+    const strings = parseInternedStrings(bytes);
+    assert.equal(strings.some((s) => s.includes("item-0")), true);
+    assert.equal(strings.some((s) => s.includes("item-9")), false);
+    assert.equal(virtualListStore.get(id).scrollTop, 0);
+  });
+
+  test("virtualList sticky ensureVisible anchors oversized tail rows to the bottom", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const id = "vl-sticky-oversized-tail";
+    virtualListStore.set(id, { stickyFollowActive: true, scrollTop: 0 });
+
+    renderBytes(
+      ui.virtualList({
+        id,
+        items: ["giant-tail"],
+        itemHeight: 10,
+        ensureVisibleIndex: 0,
+        ensureVisibleMode: "sticky",
+        renderItem: (item) => ui.text(item),
+      }),
+      { cols: 20, rows: 5 },
+      { virtualListStore },
+    );
+
+    assert.equal(virtualListStore.get(id).scrollTop, 5);
+  });
+
   test("virtualList estimate mode uses custom measureItemHeight context", () => {
     const virtualListStore = createVirtualListStateStore();
     const calls: Array<

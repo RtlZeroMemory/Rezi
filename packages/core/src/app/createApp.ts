@@ -375,6 +375,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const rawRenderer = new RawRenderer({
     backend,
     maxDrawlistBytes: config.maxDrawlistBytes,
+    maxBlobBytes: config.maxBlobBytes,
     ...(opts.config?.drawlistValidateParams === undefined
       ? {}
       : { drawlistValidateParams: opts.config.drawlistValidateParams }),
@@ -384,6 +385,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const widgetRenderer = new WidgetRenderer<S>({
     backend,
     maxDrawlistBytes: config.maxDrawlistBytes,
+    maxBlobBytes: config.maxBlobBytes,
     rootPadding: config.rootPadding,
     breakpointThresholds: config.breakpointThresholds,
     terminalProfile,

@@ -40,7 +40,11 @@ import type {
   VirtualListProps,
 } from "../../widgets/types.js";
 import {
+  clampScrollTop,
   computeVisibleRange,
+  getItemHeight,
+  getItemOffset,
+  getTotalHeight,
   resolveVirtualListItemHeightSpec,
 } from "../../widgets/virtualList.js";
 import type { LogsConsoleRenderCache, TableRenderCache } from "./renderCaches.js";
@@ -317,11 +321,39 @@ export function routeVirtualListKeyDown(
     wrapAround: vlist.wrapAround === true,
   });
 
+  const computeStickyFollowActive = (scrollTop: number): boolean | undefined => {
+    const rawEnsureVisibleIndex = vlist.ensureVisibleIndex;
+    if (
+      typeof rawEnsureVisibleIndex !== "number" ||
+      !Number.isFinite(rawEnsureVisibleIndex) ||
+      vlist.ensureVisibleMode !== "sticky"
+    ) {
+      return undefined;
+    }
+    if (vlist.items.length === 0) return true;
+    const followIndex = Math.max(
+      0,
+      Math.min(vlist.items.length - 1, Math.trunc(rawEnsureVisibleIndex)),
+    );
+    const totalHeight = getTotalHeight(vlist.items, itemHeight, measuredHeights);
+    const clampedScrollTop = clampScrollTop(scrollTop, totalHeight, state.viewportHeight);
+    const maxScrollTop = clampScrollTop(totalHeight, totalHeight, state.viewportHeight);
+    if (maxScrollTop - clampedScrollTop <= 1) return true;
+    const offset = getItemOffset(vlist.items, itemHeight, followIndex, measuredHeights);
+    const height = getItemHeight(vlist.items, itemHeight, followIndex, measuredHeights);
+    const viewportBottom = clampedScrollTop + state.viewportHeight;
+    const itemBottom = offset + height;
+    return viewportBottom >= itemBottom - 1;
+  };
+
   let changed = false;
   if (r.nextSelectedIndex !== undefined || r.nextScrollTop !== undefined) {
-    const patch: { selectedIndex?: number; scrollTop?: number } = {};
+    const patch: { selectedIndex?: number; scrollTop?: number; stickyFollowActive?: boolean } =
+      {};
     if (r.nextSelectedIndex !== undefined) patch.selectedIndex = r.nextSelectedIndex;
     if (r.nextScrollTop !== undefined) patch.scrollTop = r.nextScrollTop;
+    const stickyFollowActive = computeStickyFollowActive(r.nextScrollTop ?? state.scrollTop);
+    if (stickyFollowActive !== undefined) patch.stickyFollowActive = stickyFollowActive;
     ctx.virtualListStore.set(vlist.id, patch);
     changed = true;
   }

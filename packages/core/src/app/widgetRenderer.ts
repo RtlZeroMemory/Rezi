@@ -842,6 +842,10 @@ export class WidgetRenderer<S> {
     nodeKey: string;
     timeMs: number;
   }> | null = null;
+  private pressedToolApproval: Readonly<{
+    id: string;
+    action: "allow" | "deny" | "allowSession";
+  }> | null = null;
   private traps: ReadonlyMap<string, CollectedTrap> = new Map<string, CollectedTrap>();
   private zoneMetaById: ReadonlyMap<string, CollectedZone> = new Map<string, CollectedZone>();
   private focusInfoById: ReadonlyMap<string, FocusInfo> = new Map<string, FocusInfo>();
@@ -1077,6 +1081,7 @@ export class WidgetRenderer<S> {
       backend: RuntimeBackend;
       builder?: DrawlistBuilder;
       maxDrawlistBytes?: number;
+      maxBlobBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
       drawlistEncodedStringCacheCap?: number;
@@ -1120,6 +1125,7 @@ export class WidgetRenderer<S> {
     const validateParams = opts.drawlistValidateParams ?? false;
     const builderOpts = {
       ...(opts.maxDrawlistBytes === undefined ? {} : { maxDrawlistBytes: opts.maxDrawlistBytes }),
+      ...(opts.maxBlobBytes === undefined ? {} : { maxBlobBytes: opts.maxBlobBytes }),
       validateParams,
       ...(opts.drawlistReuseOutputBuffer === undefined
         ? {}
@@ -1717,6 +1723,7 @@ export class WidgetRenderer<S> {
       lastFilePickerClick: this.lastFilePickerClick,
       pressedTree: this.pressedTree,
       lastTreeClick: this.lastTreeClick,
+      pressedToolApproval: this.pressedToolApproval,
       splitPaneDrag: this.splitPaneDrag,
       splitPaneLastDividerDown: this.splitPaneLastDividerDown,
     };
@@ -1808,6 +1815,7 @@ export class WidgetRenderer<S> {
     this.lastFilePickerClick = state.lastFilePickerClick;
     this.pressedTree = state.pressedTree;
     this.lastTreeClick = state.lastTreeClick;
+    this.pressedToolApproval = state.pressedToolApproval;
     this.splitPaneDrag = state.splitPaneDrag;
     this.splitPaneLastDividerDown = state.splitPaneLastDividerDown;
     return outcome;

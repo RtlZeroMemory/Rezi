@@ -475,6 +475,95 @@ describe("modal, overlay, and focus behavior contracts", () => {
     assert.equal(renderer.getFocusedId(), "cancel");
   });
 
+  test("tool approval dialog mouse clicks activate action regions", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let open = true;
+    let allowSessionCount = 0;
+    let closeCount = 0;
+    const view = () =>
+      ui.layers([
+        ui.button({ id: "background", label: "Background action" }),
+        ...(open
+          ? [
+              ui.toolApprovalDialog({
+                id: "approval",
+                open: true,
+                request: {
+                  toolId: "terminal",
+                  toolName: "terminal",
+                  command: "rm -rf ./dist",
+                  riskLevel: "high",
+                },
+                onPress: () => {},
+                onAllowForSession: () => {
+                  allowSessionCount++;
+                },
+                onClose: () => {
+                  closeCount++;
+                  open = false;
+                },
+              }),
+            ]
+          : []),
+      ]);
+
+    submit(renderer, view, { cols: 80, rows: 24 });
+    const rect = renderer.getRectByIdIndex().get("approval");
+    assert.ok(rect !== undefined, "approval rect should exist");
+    if (!rect) return;
+
+    const x = rect.x + 22;
+    const y = rect.y + rect.h - 2;
+    renderer.routeEngineEvent(mouseEvent(x, y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(x, y, 4));
+
+    assert.equal(renderer.getFocusedId(), "approval");
+    assert.equal(allowSessionCount, 1);
+    assert.equal(closeCount, 1);
+  });
+
+  test("tool approval dialog blocks backdrop clicks from background widgets", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let backgroundPresses = 0;
+    const view = () =>
+      ui.layers([
+        ui.button({
+          id: "background",
+          label: "Background action",
+          onPress: () => {
+            backgroundPresses++;
+          },
+        }),
+        ui.toolApprovalDialog({
+          id: "approval",
+          open: true,
+          request: {
+            toolId: "terminal",
+            toolName: "terminal",
+            command: "rm -rf ./dist",
+            riskLevel: "high",
+          },
+          onPress: () => {},
+          onClose: () => {},
+        }),
+      ]);
+
+    submit(renderer, view, { cols: 80, rows: 24 });
+    const bgCenter = centerOf(renderer, "background");
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 4));
+
+    assert.equal(backgroundPresses, 0);
+  });
+
   test("top layer above a modal still receives mouse presses", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),

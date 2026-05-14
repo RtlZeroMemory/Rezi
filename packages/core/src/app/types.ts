@@ -24,6 +24,7 @@ export type AppConfig = Readonly<{
   fpsCap?: number;
   maxEventBytes?: number;
   maxDrawlistBytes?: number;
+  maxBlobBytes?: number;
   rootPadding?: number;
   breakpoints?: Readonly<{
     smMax?: number;

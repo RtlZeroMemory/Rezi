@@ -39,6 +39,11 @@ export type VirtualListLocalState = Readonly<{
   /** One past last visible item index (derived from scrollTop + viewportHeight). */
   endIndex: number;
   /**
+   * Sticky-follow state for ensureVisibleIndex mode.
+   * Undefined means the behavior has not been initialized yet.
+   */
+  stickyFollowActive?: boolean;
+  /**
    * Cached measured heights (index -> height) used by estimateItemHeight mode.
    * Internal detail; consumers should treat this as read-only snapshot state.
    */
@@ -250,6 +255,7 @@ export type VirtualListLocalStatePatch = Readonly<{
   viewportHeight?: number;
   startIndex?: number;
   endIndex?: number;
+  stickyFollowActive?: boolean;
   measuredHeights?: ReadonlyMap<number, number>;
   measuredWidth?: number;
   measuredItemCount?: number;
@@ -286,6 +292,11 @@ export function createVirtualListStateStore(): VirtualListStateStore {
           patch.viewportHeight !== undefined ? patch.viewportHeight : prev.viewportHeight,
         startIndex: patch.startIndex !== undefined ? patch.startIndex : prev.startIndex,
         endIndex: patch.endIndex !== undefined ? patch.endIndex : prev.endIndex,
+        ...(patch.stickyFollowActive !== undefined
+          ? { stickyFollowActive: patch.stickyFollowActive }
+          : prev.stickyFollowActive !== undefined
+            ? { stickyFollowActive: prev.stickyFollowActive }
+            : {}),
         ...(measuredHeights === undefined ? {} : { measuredHeights }),
         ...(measuredWidth === undefined ? {} : { measuredWidth }),
         ...(measuredItemCount === undefined ? {} : { measuredItemCount }),

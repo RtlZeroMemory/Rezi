@@ -35,11 +35,15 @@ import type {
   SplitPaneProps,
   TableProps,
   ToastContainerProps,
+  ToolApprovalDialogProps,
   TreeProps,
   VirtualListProps,
 } from "../../widgets/types.js";
 import {
+  clampScrollTop,
   computeVisibleRange,
+  getItemHeight,
+  getItemOffset,
   getTotalHeight,
   resolveVirtualListItemHeightSpec,
 } from "../../widgets/virtualList.js";
@@ -121,6 +125,19 @@ type RouteToastMouseDownContext = Readonly<{
     nextZoneId: string | null,
     prevZones: ReadonlyMap<string, CollectedZone>,
     nextZones: ReadonlyMap<string, CollectedZone>,
+  ) => void;
+}>;
+
+type ToolApprovalAction = "allow" | "deny" | "allowSession";
+
+type RouteToolApprovalDialogMouseContext = Readonly<{
+  mouseTargetId: string | null;
+  toolApprovalDialogById: ReadonlyMap<string, ToolApprovalDialogProps>;
+  rectById: ReadonlyMap<string, Rect>;
+  focusedActionById: Map<string, ToolApprovalAction>;
+  pressedToolApproval: Readonly<{ id: string; action: ToolApprovalAction }> | null;
+  setPressedToolApproval: (
+    next: Readonly<{ id: string; action: ToolApprovalAction }> | null,
   ) => void;
 }>;
 
@@ -729,6 +746,72 @@ export function routeToastMouseDown(
   }
 
   return null;
+}
+
+function hitToolApprovalAction(
+  rect: Rect,
+  dialog: ToolApprovalDialogProps,
+  x: number,
+  y: number,
+): ToolApprovalAction | null {
+  const buttonY = rect.y + rect.h - 2;
+  if (y !== buttonY) return null;
+
+  const allowX = rect.x + 2;
+  if (x >= allowX && x < allowX + "[Allow]".length) return "allow";
+
+  const denyX = rect.x + 12;
+  if (x >= denyX && x < denyX + "[Deny]".length) return "deny";
+
+  if (dialog.onAllowForSession) {
+    const sessionX = rect.x + 21;
+    if (x >= sessionX && x < sessionX + "[Allow Session]".length) return "allowSession";
+  }
+
+  return null;
+}
+
+export function routeToolApprovalDialogMouseClick(
+  event: ZrevEvent,
+  ctx: RouteToolApprovalDialogMouseContext,
+): boolean {
+  if (event.kind !== "mouse" || (event.mouseKind !== 3 && event.mouseKind !== 4)) return false;
+
+  const targetId = ctx.mouseTargetId;
+  const dialog = targetId !== null ? ctx.toolApprovalDialogById.get(targetId) : undefined;
+  const rect = targetId !== null ? ctx.rectById.get(targetId) : undefined;
+  const action =
+    dialog && rect && dialog.open === true
+      ? hitToolApprovalAction(rect, dialog, event.x, event.y)
+      : null;
+
+  if (event.mouseKind === 3) {
+    ctx.setPressedToolApproval(null);
+    if (!targetId || !dialog || !rect || action === null) return false;
+    ctx.focusedActionById.set(targetId, action);
+    ctx.setPressedToolApproval(Object.freeze({ id: targetId, action }));
+    return true;
+  }
+
+  const pressed = ctx.pressedToolApproval;
+  ctx.setPressedToolApproval(null);
+  if (!pressed || !targetId || pressed.id !== targetId || action !== pressed.action || !dialog) {
+    return false;
+  }
+
+  if (action === "allowSession" && dialog.onAllowForSession) {
+    invokeCallbackSafely(dialog.onAllowForSession);
+    invokeCallbackSafely(dialog.onClose);
+    return true;
+  }
+
+  if (action === "allow" || action === "deny") {
+    invokeCallbackSafely(dialog.onPress, action);
+    invokeCallbackSafely(dialog.onClose);
+    return true;
+  }
+
+  return false;
 }
 
 export function routeVirtualListMouseClick(
@@ -1554,7 +1637,37 @@ export function routeMouseWheel(
       });
 
       if (r.nextScrollTop !== undefined) {
-        ctx.virtualListStore.set(vlist.id, { scrollTop: r.nextScrollTop });
+        let stickyFollowActive: boolean | undefined;
+        const rawEnsureVisibleIndex = vlist.ensureVisibleIndex;
+        if (
+          typeof rawEnsureVisibleIndex === "number" &&
+          Number.isFinite(rawEnsureVisibleIndex) &&
+          vlist.ensureVisibleMode === "sticky"
+        ) {
+          if (vlist.items.length === 0) {
+            stickyFollowActive = true;
+          } else {
+            const followIndex = Math.max(
+              0,
+              Math.min(vlist.items.length - 1, Math.trunc(rawEnsureVisibleIndex)),
+            );
+            const clampedScrollTop = clampScrollTop(r.nextScrollTop, totalHeight, state.viewportHeight);
+            const maxScrollTop = clampScrollTop(totalHeight, totalHeight, state.viewportHeight);
+            if (maxScrollTop - clampedScrollTop <= 1) {
+              stickyFollowActive = true;
+            } else {
+              const offset = getItemOffset(vlist.items, itemHeight, followIndex, measuredHeights);
+              const height = getItemHeight(vlist.items, itemHeight, followIndex, measuredHeights);
+              const viewportBottom = clampedScrollTop + state.viewportHeight;
+              const itemBottom = offset + height;
+              stickyFollowActive = viewportBottom >= itemBottom - 1;
+            }
+          }
+        }
+        ctx.virtualListStore.set(vlist.id, {
+          scrollTop: r.nextScrollTop,
+          ...(stickyFollowActive === undefined ? {} : { stickyFollowActive }),
+        });
         if (typeof vlist.onScroll === "function") {
           const overscan = vlist.overscan ?? 3;
           const { startIndex, endIndex } = computeVisibleRange(
