@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Added
+
+- **core/virtual-list**: Added `ensureVisibleIndex` with sticky follow mode for log and chat tail-follow behavior.
+- **core/tool-approval**: Added the tool approval dialog modal surface and mouse action routing.
+- **core/rendering**: Added `maxBlobBytes` app config for drawlist blob payload limits.
+
+### Documentation
+
+- Documented virtual list sticky follow behavior, tool approval dialog modal input behavior, and `maxBlobBytes` engine config.
+
 ## [0.1.0-alpha.71] - 2026-04-27
 
 ### Documentation

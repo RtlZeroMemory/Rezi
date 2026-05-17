@@ -37,6 +37,8 @@ ui.toolApprovalDialog({
 - `ToolRequest` includes metadata like `toolId`, `toolName`, `riskLevel`, and optional `fileChanges`.
 - `fileChanges` entries include `path`, `changeType`, and optional `preview`/`oldPath` for renames.
 - Default dialog size is `50x15` cells when `width`/`height` are omitted.
+- When open, the dialog is a modal layer with a dim backdrop.
+- Backdrop clicks and clicks behind the dialog are blocked; only the dialog action regions route mouse presses.
 
 ## Related
 

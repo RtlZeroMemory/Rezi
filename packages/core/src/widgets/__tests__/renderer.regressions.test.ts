@@ -710,7 +710,10 @@ describe("renderer regressions", () => {
     );
 
     const strings = parseInternedStrings(bytes);
-    assert.equal(strings.some((s) => s.includes("item-9")), true);
+    assert.equal(
+      strings.some((s) => s.includes("item-9")),
+      true,
+    );
     assert.equal(virtualListStore.get(id).scrollTop, 5);
   });
 
@@ -733,8 +736,14 @@ describe("renderer regressions", () => {
     );
 
     const strings = parseInternedStrings(bytes);
-    assert.equal(strings.some((s) => s.includes("item-0")), true);
-    assert.equal(strings.some((s) => s.includes("item-9")), false);
+    assert.equal(
+      strings.some((s) => s.includes("item-0")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("item-9")),
+      false,
+    );
     assert.equal(virtualListStore.get(id).scrollTop, 0);
   });
 

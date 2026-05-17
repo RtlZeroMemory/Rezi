@@ -349,8 +349,7 @@ export function routeVirtualListKeyDown(
 
   let changed = false;
   if (r.nextSelectedIndex !== undefined || r.nextScrollTop !== undefined) {
-    const patch: { selectedIndex?: number; scrollTop?: number; stickyFollowActive?: boolean } =
-      {};
+    const patch: { selectedIndex?: number; scrollTop?: number; stickyFollowActive?: boolean } = {};
     if (r.nextSelectedIndex !== undefined) patch.selectedIndex = r.nextSelectedIndex;
     if (r.nextScrollTop !== undefined) patch.scrollTop = r.nextScrollTop;
     const stickyFollowActive = computeStickyFollowActive(r.nextScrollTop ?? state.scrollTop);

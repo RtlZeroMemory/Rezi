@@ -564,6 +564,55 @@ describe("modal, overlay, and focus behavior contracts", () => {
     assert.equal(backgroundPresses, 0);
   });
 
+  test("tool approval dialog keeps backdrop blocking after layout-only resize", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let backgroundPresses = 0;
+    const view = () =>
+      ui.layers([
+        ui.button({
+          id: "background",
+          label: "Background action",
+          onPress: () => {
+            backgroundPresses++;
+          },
+        }),
+        ui.toolApprovalDialog({
+          id: "approval",
+          open: true,
+          request: {
+            toolId: "terminal",
+            toolName: "terminal",
+            command: "rm -rf ./dist",
+            riskLevel: "high",
+          },
+          onPress: () => {},
+          onClose: () => {},
+        }),
+      ]);
+
+    submit(renderer, view, { cols: 80, rows: 24 });
+
+    const resized = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 100, rows: 24 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: false, layout: true, checkLayoutStability: false },
+    );
+    assert.equal(resized.ok, true, "layout-only frame should render");
+
+    const bgCenter = centerOf(renderer, "background");
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(bgCenter.x, bgCenter.y, 4));
+
+    assert.equal(backgroundPresses, 0);
+  });
+
   test("top layer above a modal still receives mouse presses", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),

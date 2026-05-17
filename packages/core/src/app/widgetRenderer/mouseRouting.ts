@@ -1655,7 +1655,11 @@ export function routeMouseWheel(
               0,
               Math.min(vlist.items.length - 1, Math.trunc(rawEnsureVisibleIndex)),
             );
-            const clampedScrollTop = clampScrollTop(r.nextScrollTop, totalHeight, state.viewportHeight);
+            const clampedScrollTop = clampScrollTop(
+              r.nextScrollTop,
+              totalHeight,
+              state.viewportHeight,
+            );
             const maxScrollTop = clampScrollTop(totalHeight, totalHeight, state.viewportHeight);
             const followsTail = followIndex >= vlist.items.length - 1;
             if (followsTail && maxScrollTop - clampedScrollTop <= 1) {
