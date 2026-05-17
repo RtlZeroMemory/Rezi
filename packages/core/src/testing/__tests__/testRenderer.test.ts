@@ -85,6 +85,47 @@ describe("createTestRenderer", () => {
     assert.ok((bottom?.rect.y ?? 0) >= (top?.rect.y ?? 0) + (top?.rect.h ?? 0));
   });
 
+  test("query rect origins are clamped to the viewport while raw layout keeps scroll offsets", () => {
+    const viewport = { cols: 5, rows: 3 };
+    const renderer = createTestRenderer({ viewport });
+
+    const result = renderer.render(
+      ui.column(
+        { id: "scroll", width: 5, height: 3, overflow: "scroll", scrollX: 99, scrollY: 99 },
+        [
+          ui.box({ id: "oversized", border: "none", mr: -4, mb: -1 }, [
+            ui.text("123456789"),
+            ui.text("line2"),
+            ui.text("line3"),
+            ui.text("line4"),
+          ]),
+        ],
+      ),
+    );
+
+    for (const node of result.nodes) {
+      assert.ok(node.rect.x >= 0, `${node.kind} x should be inside viewport`);
+      assert.ok(node.rect.y >= 0, `${node.kind} y should be inside viewport`);
+      assert.ok(node.rect.w >= 0, `${node.kind} width should be non-negative`);
+      assert.ok(node.rect.h >= 0, `${node.kind} height should be non-negative`);
+    }
+
+    assert.deepEqual(result.findById("oversized")?.rect, { x: 0, y: 0, w: 9, h: 4 });
+
+    let rawOversizedX: number | null = null;
+    let rawOversizedY: number | null = null;
+    result.forEachLayoutNode((rect, props) => {
+      if (props.id === "oversized") {
+        rawOversizedX = rect.x;
+        rawOversizedY = rect.y;
+      }
+    });
+    assert.notEqual(rawOversizedX, null);
+    assert.notEqual(rawOversizedY, null);
+    assert.ok((rawOversizedX ?? 0) < 0);
+    assert.ok((rawOversizedY ?? 0) < 0);
+  });
+
   test("trace callback receives render timing and detail payload", () => {
     const events: unknown[] = [];
     const renderer = createTestRenderer({

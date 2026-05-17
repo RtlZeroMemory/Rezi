@@ -130,6 +130,19 @@ function normalizeTheme(theme: Theme | ThemeDefinition | undefined): Theme {
 const EMPTY_PROPS: TestNodeProps = Object.freeze({});
 const EMPTY_PATH: readonly number[] = Object.freeze([]);
 
+function clampToRange(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeRectOriginToViewport(rect: Rect, viewport: TestViewport): Rect {
+  return {
+    x: clampToRange(rect.x, 0, viewport.cols),
+    y: clampToRange(rect.y, 0, viewport.rows),
+    w: rect.w,
+    h: rect.h,
+  };
+}
+
 function asPropsRecord(value: unknown, mode: TestRendererMode): TestNodeProps {
   if (typeof value !== "object" || value === null) return EMPTY_PROPS;
   // Runtime mode favors lower allocation overhead for hot render paths.
@@ -219,7 +232,11 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
   }
 }
 
-function collectNodes(layoutTree: LayoutTree, mode: TestRendererMode): readonly TestRenderNode[] {
+function collectNodes(
+  layoutTree: LayoutTree,
+  viewport: TestViewport,
+  mode: TestRendererMode,
+): readonly TestRenderNode[] {
   const out: TestRenderNode[] = [];
 
   const walk = (node: LayoutTree, path: readonly number[]): void => {
@@ -229,7 +246,7 @@ function collectNodes(layoutTree: LayoutTree, mode: TestRendererMode): readonly 
 
     const base: TestRenderNode = {
       kind: node.vnode.kind,
-      rect: node.rect,
+      rect: normalizeRectOriginToViewport(node.rect, viewport),
       props,
       id,
       path: mode === "runtime" ? EMPTY_PATH : Object.freeze(path.slice()),
@@ -549,10 +566,10 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
 
     const ops = builder.snapshotOps();
     let nodesCache: readonly TestRenderNode[] | null =
-      mode === "test" ? collectNodes(layoutTree, mode) : null;
+      mode === "test" ? collectNodes(layoutTree, viewport, mode) : null;
     const getNodes = (): readonly TestRenderNode[] => {
       if (nodesCache !== null) return nodesCache;
-      nodesCache = collectNodes(layoutTree, mode);
+      nodesCache = collectNodes(layoutTree, viewport, mode);
       return nodesCache;
     };
     let screenTextCache: string | null = null;
