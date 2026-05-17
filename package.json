@@ -43,6 +43,7 @@
     "test:e2e:reduced": "node scripts/run-e2e.mjs --profile reduced",
     "test:scripts": "node scripts/run-tests.mjs --scope scripts",
     "test:packages": "node scripts/run-tests.mjs --scope packages",
+    "test:fuzz": "npm run build && node scripts/run-tests.mjs --scope packages --filter fuzz",
     "test:release-critical": "node scripts/testing-slices.mjs run release-critical-packages",
     "test:release-critical:terminal": "node scripts/testing-slices.mjs run release-critical-terminal",
     "test:progress": "node scripts/testing-slices.mjs summary",

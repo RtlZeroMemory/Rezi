@@ -1,6 +1,6 @@
 # @rezi-ui/testkit
 
-Test utilities and golden fixtures for Rezi.
+Test utilities, deterministic fuzz helpers, and golden fixtures for Rezi.
 
 Most applications do not need this package directly.
 
