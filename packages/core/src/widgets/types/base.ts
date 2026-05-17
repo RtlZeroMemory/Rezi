@@ -1007,6 +1007,17 @@ export type VirtualListProps<T = unknown> = Readonly<{
   /** Number of items to render outside the visible viewport (default: 3) */
   overscan?: number;
   renderItem: (item: T, index: number, focused: boolean) => VNode;
+  /**
+   * When provided, the list can keep this item visible as content changes.
+   * Useful for chat, logs, or streaming output UIs that follow a tail item.
+   */
+  ensureVisibleIndex?: number;
+  /**
+   * Controls how ensureVisibleIndex behaves.
+   * - "always": always keep the target item visible
+   * - "sticky": keep following only while the user stays attached to the tail
+   */
+  ensureVisibleMode?: "always" | "sticky";
   onScroll?: (scrollTop: number, visibleRange: [number, number]) => void;
   onSelect?: (item: T, index: number) => void;
   /** Enable keyboard navigation with arrow keys, page up/down, home/end (default: true) */

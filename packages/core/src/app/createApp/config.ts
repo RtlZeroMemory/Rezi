@@ -20,6 +20,7 @@ export type ResolvedAppConfig = Readonly<{
   fpsCap: number;
   maxEventBytes: number;
   maxDrawlistBytes: number;
+  maxBlobBytes: number;
   rootPadding: number;
   breakpointThresholds: ResponsiveBreakpointThresholds;
   drawlistValidateParams: boolean;
@@ -35,6 +36,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   fpsCap: 60,
   maxEventBytes: 1 << 20 /* 1 MiB */,
   maxDrawlistBytes: 2 << 20 /* 2 MiB */,
+  maxBlobBytes: 512 << 10 /* 512 KiB */,
   rootPadding: 0,
   breakpointThresholds: normalizeBreakpointThresholds(undefined),
   drawlistValidateParams: true,
@@ -83,6 +85,10 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     config.maxDrawlistBytes === undefined
       ? DEFAULT_CONFIG.maxDrawlistBytes
       : requirePositiveInt("maxDrawlistBytes", config.maxDrawlistBytes);
+  const maxBlobBytes =
+    config.maxBlobBytes === undefined
+      ? DEFAULT_CONFIG.maxBlobBytes
+      : requirePositiveInt("maxBlobBytes", config.maxBlobBytes);
   const rootPadding =
     config.rootPadding === undefined
       ? DEFAULT_CONFIG.rootPadding
@@ -120,6 +126,7 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     fpsCap,
     maxEventBytes,
     maxDrawlistBytes,
+    maxBlobBytes,
     rootPadding,
     breakpointThresholds,
     drawlistValidateParams,

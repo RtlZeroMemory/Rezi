@@ -24,6 +24,7 @@ import { type FlattenedNode, computeNodeState, flattenTree } from "../../../widg
 import type { TableProps, TreeProps, VirtualListProps } from "../../../widgets/types.js";
 import {
   computeVisibleRange,
+  ensureVisible,
   getItemHeight,
   getItemOffset,
   getTotalHeight,
@@ -258,8 +259,45 @@ export function renderCollectionWidget(
           ? state.measuredHeights
           : undefined;
 
+      const normalizeEnsureVisibleIndex = (): number | null => {
+        const rawEnsureVisibleIndex = props.ensureVisibleIndex;
+        if (typeof rawEnsureVisibleIndex !== "number" || !Number.isFinite(rawEnsureVisibleIndex)) {
+          return null;
+        }
+        if (items.length === 0) return null;
+        const raw = Math.trunc(rawEnsureVisibleIndex);
+        return Math.max(0, Math.min(items.length - 1, raw));
+      };
+      const ensureVisibleIndex = normalizeEnsureVisibleIndex();
+      const ensureVisibleMode = props.ensureVisibleMode === "sticky" ? "sticky" : "always";
+      const stickyFollowActive =
+        ensureVisibleMode === "sticky" ? (state.stickyFollowActive ?? true) : true;
+      const shouldEnsureVisible = ensureVisibleIndex !== null && stickyFollowActive;
+      const ensureItemVisible = (
+        baseScrollTop: number,
+        heights: ReadonlyMap<number, number> | undefined,
+      ): number => {
+        const nextTotalHeight = getTotalHeight(items, itemHeight, heights);
+        if (!shouldEnsureVisible || ensureVisibleIndex === null) {
+          return clampScrollTop(baseScrollTop, nextTotalHeight, rect.h);
+        }
+        const offset = getItemOffset(items, itemHeight, ensureVisibleIndex, heights);
+        const height = getItemHeight(items, itemHeight, ensureVisibleIndex, heights);
+        // Sticky tail-follow should anchor oversized rows to their bottom edge.
+        // A generic "make visible" algorithm can oscillate between the row top
+        // and bottom when the item is taller than the viewport and continues growing.
+        if (height > rect.h) {
+          return clampScrollTop(Math.max(0, offset + height - rect.h), nextTotalHeight, rect.h);
+        }
+        return clampScrollTop(
+          ensureVisible(baseScrollTop, rect.h, offset, height),
+          nextTotalHeight,
+          rect.h,
+        );
+      };
+
       const totalHeight = getTotalHeight(items, itemHeight, measuredHeights);
-      const effectiveScrollTop = clampScrollTop(state.scrollTop, totalHeight, rect.h);
+      const effectiveScrollTop = ensureItemVisible(state.scrollTop, measuredHeights);
 
       const fixedItemHeight =
         !estimateMode && measuredHeights === undefined && typeof itemHeight === "number"
@@ -412,6 +450,7 @@ export function renderCollectionWidget(
           finalTotalHeight,
           rect.h,
         );
+        nextScrollTop = ensureItemVisible(nextScrollTop, finalMeasuredHeights);
       }
 
       setLayoutScrollMetadata(layoutNode, {
@@ -432,6 +471,7 @@ export function renderCollectionWidget(
           startIndex: number;
           endIndex: number;
           scrollTop?: number;
+          stickyFollowActive?: boolean;
           measuredHeights?: ReadonlyMap<number, number>;
           measuredWidth?: number;
           measuredItemCount?: number;
@@ -441,6 +481,9 @@ export function renderCollectionWidget(
           endIndex: renderedEndIndex,
         };
         if (nextScrollTop !== state.scrollTop) patch.scrollTop = nextScrollTop;
+        if (ensureVisibleMode === "sticky" && state.stickyFollowActive === undefined) {
+          patch.stickyFollowActive = true;
+        }
         if (estimateMode) {
           patch.measuredHeights = finalMeasuredHeights ?? new Map<number, number>();
           patch.measuredWidth = rect.w;

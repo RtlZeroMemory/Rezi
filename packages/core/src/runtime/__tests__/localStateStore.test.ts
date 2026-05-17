@@ -52,6 +52,19 @@ test("virtual list state store clones measuredHeights inputs", () => {
   assert.equal(store.get("list").measuredHeights?.has(2), false);
 });
 
+test("virtual list state store preserves sticky follow state", () => {
+  const store = createVirtualListStateStore();
+
+  store.set("list", { stickyFollowActive: false, scrollTop: 4 });
+  const state = store.get("list");
+
+  assert.equal(state.stickyFollowActive, false);
+  assert.equal(state.scrollTop, 4);
+
+  store.set("list", { selectedIndex: 2 });
+  assert.equal(store.get("list").stickyFollowActive, false);
+});
+
 test("tree state store clones loading and expanded set inputs", () => {
   const store = createTreeStateStore();
   const loadingKeys = new Set<string>(["loading-a"]);

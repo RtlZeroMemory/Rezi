@@ -14,6 +14,7 @@ const app = createNodeApp({
   config: {
     fpsCap: 30,
     maxDrawlistBytes: 4 << 20, // 4 MiB
+    maxBlobBytes: 1 << 20, // 1 MiB
     drawlistValidateParams: false, // trusted inputs, skip validation
     maxFramesInFlight: 2,
   },
@@ -27,10 +28,18 @@ type AppConfig = Readonly<{
   fpsCap?: number;
   maxEventBytes?: number;
   maxDrawlistBytes?: number;
+  maxBlobBytes?: number;
+  rootPadding?: number;
+  breakpoints?: Readonly<{
+    smMax?: number;
+    mdMax?: number;
+    lgMax?: number;
+  }>;
   drawlistValidateParams?: boolean;
   drawlistReuseOutputBuffer?: boolean;
   drawlistEncodedStringCacheCap?: number;
   maxFramesInFlight?: number;
+  themeTransitionFrames?: number;
   internal_onRender?: (metrics: AppRenderMetrics) => void;
   internal_onLayout?: (snapshot: AppLayoutSnapshot) => void;
 }>;
@@ -86,6 +95,24 @@ config: {
 }
 ```
 
+### maxBlobBytes
+
+| Detail   | Value |
+|----------|-------|
+| Type     | `number` (positive integer) |
+| Default  | `512 << 10` (512 KiB) |
+
+Maximum total byte size of the drawlist blob pool for a frame. If binary payloads
+exceed this limit during frame construction, the frame is rejected. Increase this
+value only for applications that intentionally render large binary-backed
+surfaces such as images or canvases.
+
+```typescript
+config: {
+  maxBlobBytes: 1 << 20, // 1 MiB blob pool
+}
+```
+
 ### drawlistValidateParams
 
 | Detail   | Value |
@@ -129,7 +156,7 @@ remains safe regardless of the pipelining depth.
 | Detail   | Value |
 |----------|-------|
 | Type     | `number` (non-negative integer) |
-| Default  | `1024` |
+| Default  | `131072` |
 
 Maximum number of UTF-8 encoded strings to cache across frames. The drawlist
 builder maintains a cache of encoded strings to avoid redundant
@@ -142,7 +169,7 @@ application renders many unique but repeated strings across frames.
 
 ```typescript
 config: {
-  drawlistEncodedStringCacheCap: 2048, // larger cache for text-heavy UIs
+  drawlistEncodedStringCacheCap: 262144, // larger cache for text-heavy UIs
 }
 ```
 
@@ -177,10 +204,13 @@ config: {
 | `fpsCap`                        | `60`          |
 | `maxEventBytes`                 | `1048576` (1 MiB) |
 | `maxDrawlistBytes`              | `2097152` (2 MiB) |
+| `maxBlobBytes`                  | `524288` (512 KiB) |
+| `rootPadding`                   | `0`           |
 | `drawlistValidateParams`        | `true` (app runtime default) |
 | `drawlistReuseOutputBuffer`     | `true`        |
-| `drawlistEncodedStringCacheCap` | `1024`        |
+| `drawlistEncodedStringCacheCap` | `131072`      |
 | `maxFramesInFlight`             | `1`           |
+| `themeTransitionFrames`         | `0`           |
 
 ## See Also
 

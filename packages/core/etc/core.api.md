@@ -160,6 +160,7 @@ export type AppConfig = Readonly<{
     fpsCap?: number;
     maxEventBytes?: number;
     maxDrawlistBytes?: number;
+    maxBlobBytes?: number;
     rootPadding?: number;
     breakpoints?: Readonly<{
         smMax?: number;
@@ -7375,6 +7376,7 @@ export type VirtualListLocalState = Readonly<{
     viewportHeight: number;
     startIndex: number;
     endIndex: number;
+    stickyFollowActive?: boolean;
     measuredHeights?: ReadonlyMap<number, number>;
     measuredWidth?: number;
     measuredItemCount?: number;
@@ -7387,6 +7389,7 @@ export type VirtualListLocalStatePatch = Readonly<{
     viewportHeight?: number;
     startIndex?: number;
     endIndex?: number;
+    stickyFollowActive?: boolean;
     measuredHeights?: ReadonlyMap<number, number>;
     measuredWidth?: number;
     measuredItemCount?: number;
@@ -7411,6 +7414,8 @@ export type VirtualListProps<T = unknown> = Readonly<{
     measureItemHeight?: (item: T, index: number, ctx: VirtualListMeasureItemHeightCtx) => number;
     overscan?: number;
     renderItem: (item: T, index: number, focused: boolean) => VNode;
+    ensureVisibleIndex?: number;
+    ensureVisibleMode?: "always" | "sticky";
     onScroll?: (scrollTop: number, visibleRange: [number, number]) => void;
     onSelect?: (item: T, index: number) => void;
     keyboardNavigation?: boolean;
@@ -8016,8 +8021,8 @@ export type ZrUiErrorCode = "ZRUI_INVALID_STATE" | "ZRUI_MODE_CONFLICT" | "ZRUI_
 // src/runtime/instances.ts:56:3 - (ae-forgotten-export) The symbol "UnknownCallback_2" needs to be exported by the entry point index.d.ts
 // src/runtime/instances.ts:134:3 - (ae-forgotten-export) The symbol "InstanceId" needs to be exported by the entry point index.d.ts
 // src/runtime/instances.ts:161:3 - (ae-forgotten-export) The symbol "AppStateSelection" needs to be exported by the entry point index.d.ts
-// src/runtime/localState.ts:401:3 - (ae-forgotten-export) The symbol "TreeFlatCache" needs to be exported by the entry point index.d.ts
-// src/runtime/localState.ts:406:3 - (ae-forgotten-export) The symbol "TreePrefixCache" needs to be exported by the entry point index.d.ts
+// src/runtime/localState.ts:412:3 - (ae-forgotten-export) The symbol "TreeFlatCache" needs to be exported by the entry point index.d.ts
+// src/runtime/localState.ts:417:3 - (ae-forgotten-export) The symbol "TreePrefixCache" needs to be exported by the entry point index.d.ts
 // src/runtime/widgetMeta/focusInfo.ts:8:3 - (ae-forgotten-export) The symbol "RuntimeInstance" needs to be exported by the entry point index.d.ts
 // src/testing/renderer.ts:93:3 - (ae-forgotten-export) The symbol "TestRecordedOp" needs to be exported by the entry point index.d.ts
 // src/widgets/composition.ts:88:3 - (ae-forgotten-export) The symbol "UnknownCallback" needs to be exported by the entry point index.d.ts
