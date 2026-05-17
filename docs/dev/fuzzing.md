@@ -28,8 +28,18 @@ Keep fuzz targets behavior-first and contract-backed:
   structured errors
 - binary readers/writers: preserve byte order, bounds checks, and failure
   atomicity
+- drawlist builders: valid public command programs produce well-formed bounded
+  ZRDL; invalid public inputs return structured build errors without throwing
+- keybinding parsers: valid public syntax round-trips through canonical strings;
+  malformed syntax returns structured parse errors
+- router paths: key, mouse, hit-test, and wheel routing only dispatch to
+  enabled intended targets and clamp scroll updates
+- widgets: disabled controls suppress interaction, enabled controls emit
+  documented payloads, and duplicate interactive ids fail deterministically
 - layout/text/render paths: never throw on valid widget trees or malformed text
   data; outputs remain bounded and deterministic
+- theme and style resolution: valid tokens resolve exactly; invalid tokens and
+  paths fail or fall back deterministically
 - app runtime and backend integration: injected backend failures produce
   structured fatal events, stop safely, and dispose when the runtime faults
 
