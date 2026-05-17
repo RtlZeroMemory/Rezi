@@ -19,6 +19,15 @@ test("deriveFuzzCaseSeed: stable non-zero per iteration", () => {
   assert.notEqual(deriveFuzzCaseSeed(0, 0), 0);
 });
 
+test("fuzz seeds reject values outside uint32 range", async () => {
+  assert.throws(() => hexSeed(0x1_0000_0000), /seed must be <= 0xffffffff/u);
+  assert.throws(() => deriveFuzzCaseSeed(0x1_0000_0000, 0), /seed must be <= 0xffffffff/u);
+  await assert.rejects(
+    runFuzz({ seed: 0x1_0000_0000, iterations: 1, label: "bad-seed" }, () => {}),
+    /seed must be <= 0xffffffff/u,
+  );
+});
+
 test("runFuzz: deterministic case rng is independent per iteration", async () => {
   const first: number[] = [];
   const second: number[] = [];
@@ -85,6 +94,15 @@ test("createFuzzFaultPlan: deterministic bounded fault selection", async () => {
     );
   });
   assert.deepEqual(plans, replayed);
+});
+
+test("createFuzzFaultPlan: duplicate points fail before sampling", async () => {
+  await runFuzz({ seed: 0x9bad, iterations: 1, label: "fault-duplicates" }, (ctx) => {
+    assert.throws(
+      () => createFuzzFaultPlan(ctx, ["poll", "poll"] as const, { minFailures: 2 }),
+      /points must be unique/u,
+    );
+  });
 });
 
 fuzzTest("fuzzTest delegates to runFuzz", { seed: 0x55aa, iterations: 3 }, (ctx) => {

@@ -8,6 +8,9 @@ Rezi fuzz tests are deterministic, bounded `node:test` suites. They should use
 - derived case seed
 - case notes such as input length, viewport, or injected fault points
 
+Seeds are unsigned 32-bit integers. Values outside `0..0xffffffff` are rejected
+instead of truncated so reproduction commands always identify one exact run.
+
 Run all package fuzz suites after a build:
 
 ```bash

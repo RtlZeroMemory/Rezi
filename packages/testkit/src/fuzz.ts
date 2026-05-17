@@ -66,11 +66,12 @@ export class FuzzFailureError extends Error {
 }
 
 export function hexSeed(seed: number): string {
+  assertUInt32("seed", seed);
   return `0x${(seed >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 export function deriveFuzzCaseSeed(seed: number, iteration: number): number {
-  assertNonNegativeInteger("seed", seed);
+  assertUInt32("seed", seed);
   assertNonNegativeInteger("iteration", iteration);
 
   let x = (seed ^ Math.imul(iteration + 0x9e37_79b9, 0x85eb_ca6b)) >>> 0;
@@ -134,7 +135,7 @@ export function randomAsciiString(
 
 export async function runFuzz(options: FuzzRunOptions, body: FuzzBody): Promise<FuzzRunSummary> {
   const label = options.label ?? "fuzz";
-  assertNonNegativeInteger("seed", options.seed);
+  assertUInt32("seed", options.seed);
   assertPositiveInteger("iterations", options.iterations);
 
   for (let iteration = 0; iteration < options.iterations; iteration++) {
@@ -186,21 +187,25 @@ export function createFuzzFaultPlan<T extends string>(
   opts: FuzzFaultPlanOptions = {},
 ): FuzzFaultPlan<T> {
   if (points.length === 0) throw new Error("createFuzzFaultPlan: points must not be empty");
+  const uniquePoints = [...new Set(points)];
+  if (uniquePoints.length !== points.length) {
+    throw new Error("createFuzzFaultPlan: points must be unique");
+  }
   const minFailures = opts.minFailures ?? 0;
-  const maxFailures = opts.maxFailures ?? points.length;
+  const maxFailures = opts.maxFailures ?? uniquePoints.length;
   assertNonNegativeInteger("minFailures", minFailures);
   assertNonNegativeInteger("maxFailures", maxFailures);
   if (minFailures > maxFailures) {
     throw new Error("createFuzzFaultPlan: minFailures must be <= maxFailures");
   }
-  if (maxFailures > points.length) {
+  if (maxFailures > uniquePoints.length) {
     throw new Error("createFuzzFaultPlan: maxFailures must not exceed points.length");
   }
 
   const target = randomInt(ctx.rng, minFailures, maxFailures);
   const selected: T[] = [];
   while (selected.length < target) {
-    const point = pick(ctx.rng, points);
+    const point = pick(ctx.rng, uniquePoints);
     if (!selected.includes(point)) selected.push(point);
   }
   selected.sort();
@@ -234,6 +239,13 @@ function assertPositiveInteger(name: string, value: number): void {
   assertInteger(name, value);
   if (value <= 0) {
     throw new Error(`${name} must be a positive integer (got ${String(value)})`);
+  }
+}
+
+function assertUInt32(name: string, value: number): void {
+  assertNonNegativeInteger(name, value);
+  if (value > 0xffff_ffff) {
+    throw new Error(`${name} must be <= 0xffffffff (got ${String(value)})`);
   }
 }
 

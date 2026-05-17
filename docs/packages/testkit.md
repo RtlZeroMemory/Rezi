@@ -30,7 +30,7 @@ test("snapshot rendered frame text", () => {
 
 Seeded fuzz tests should use `runFuzz()` or `fuzzTest()` so failures include
 the suite seed, iteration, derived case seed, and any notes needed to reproduce
-the generated input.
+the generated input. Seeds must be unsigned 32-bit integers.
 
 ```ts
 import { assert, randomInt, runFuzz, test } from "@rezi-ui/testkit";

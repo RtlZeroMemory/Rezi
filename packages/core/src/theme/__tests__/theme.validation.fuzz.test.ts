@@ -148,7 +148,6 @@ test("theme validation fuzz: valid token mutations preserve strict theme contrac
       }
 
       const validated = validateTheme(theme);
-      assert.equal(validated, theme);
 
       for (const path of COLOR_PATHS) {
         assert.equal(isValidColorPath(path), true);

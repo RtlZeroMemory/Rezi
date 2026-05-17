@@ -406,7 +406,12 @@ function renderSignature(result: TestRenderResult): RenderSignature {
           kind: node.kind,
           id: node.id,
           text: node.text ?? null,
-          rect: node.rect,
+          rect: Object.freeze({
+            x: node.rect.x,
+            y: node.rect.y,
+            w: node.rect.w,
+            h: node.rect.h,
+          }),
         }),
       ),
     ),
@@ -493,14 +498,17 @@ fuzzTest(
 
     const renderer = createTestRenderer({ viewport });
     const first = renderer.render(tree);
+    const firstSig = renderSignature(first);
     const second = renderer.render(tree);
+    const secondSig = renderSignature(second);
     const fresh = createTestRenderer({ viewport }).render(tree);
+    const freshSig = renderSignature(fresh);
 
     assertRenderContract(first);
     assertRenderContract(second);
     assertRenderContract(fresh);
-    assert.deepEqual(renderSignature(second), renderSignature(first));
-    assert.deepEqual(renderSignature(fresh), renderSignature(first));
+    assert.deepEqual(secondSig, firstSig);
+    assert.deepEqual(freshSig, firstSig);
   },
 );
 
@@ -518,10 +526,12 @@ fuzzTest(
 
     const renderer = createTestRenderer({ viewport });
     const first = renderer.render(tree);
+    const firstSig = renderSignature(first);
     const second = renderer.render(tree);
+    const secondSig = renderSignature(second);
 
     assertRenderContract(first);
     assertRenderContract(second);
-    assert.deepEqual(renderSignature(second), renderSignature(first));
+    assert.deepEqual(secondSig, firstSig);
   },
 );
