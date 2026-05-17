@@ -130,14 +130,10 @@ function normalizeTheme(theme: Theme | ThemeDefinition | undefined): Theme {
 const EMPTY_PROPS: TestNodeProps = Object.freeze({});
 const EMPTY_PATH: readonly number[] = Object.freeze([]);
 
-function clampToRange(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function normalizeRectOriginToViewport(rect: Rect, viewport: TestViewport): Rect {
+function normalizeRectOriginToViewport(rect: Rect, _viewport: TestViewport): Rect {
   return {
-    x: clampToRange(rect.x, 0, viewport.cols),
-    y: clampToRange(rect.y, 0, viewport.rows),
+    x: Math.max(rect.x, 0),
+    y: Math.max(rect.y, 0),
     w: rect.w,
     h: rect.h,
   };

@@ -126,6 +126,36 @@ describe("createTestRenderer", () => {
     assert.ok((rawOversizedY ?? 0) < 0);
   });
 
+  test("query rect origins preserve positive offscreen layout positions", () => {
+    const viewport = { cols: 8, rows: 2 };
+    const renderer = createTestRenderer({ viewport });
+
+    const result = renderer.render(
+      ui.column({ gap: 0 }, [
+        ui.box({ id: "anchor", border: "none", height: 1 }, [ui.text("anchor")]),
+        ui.box({ id: "offscreen", border: "none", position: "absolute", left: 11, top: 4 }, [
+          ui.text("offscreen"),
+        ]),
+      ]),
+    );
+
+    const offscreen = result.findById("offscreen");
+    assert.notEqual(offscreen, null);
+    assert.ok((offscreen?.rect.x ?? 0) > viewport.cols);
+    assert.ok((offscreen?.rect.y ?? 0) > viewport.rows);
+
+    let rawOffscreenX: number | null = null;
+    let rawOffscreenY: number | null = null;
+    result.forEachLayoutNode((rect, props) => {
+      if (props.id === "offscreen") {
+        rawOffscreenX = rect.x;
+        rawOffscreenY = rect.y;
+      }
+    });
+    assert.equal(offscreen?.rect.x, rawOffscreenX);
+    assert.equal(offscreen?.rect.y, rawOffscreenY);
+  });
+
   test("trace callback receives render timing and detail payload", () => {
     const events: unknown[] = [];
     const renderer = createTestRenderer({
