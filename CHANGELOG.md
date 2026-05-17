@@ -6,15 +6,33 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.72] - 2026-05-17
+
 ### Added
 
-- **core/virtual-list**: Added `ensureVisibleIndex` with sticky follow mode for log and chat tail-follow behavior.
-- **core/tool-approval**: Added the tool approval dialog modal surface and mouse action routing.
+- **core/virtual-list**: Added `ensureVisibleIndex` with sticky follow mode for log and chat tail-follow behavior, including pause/resume behavior when users manually scroll away from the tail.
+- **core/tool-approval**: Added the tool approval dialog modal surface, mouse action routing, and backdrop click blocking.
 - **core/rendering**: Added `maxBlobBytes` app config for drawlist blob payload limits.
+- **testkit/fuzzing**: Added deterministic fuzzing helpers with suite seeds, per-iteration case seeds, failure notes, and bounded fault-plan helpers.
+
+### Bug Fixes
+
+- **core/testing**: Normalized `createTestRenderer` query rect origins so scroll-shifted negative `x/y` values clamp to the viewport origin while positive offscreen layout coordinates remain intact.
+
+### Tests
+
+- **core/fuzzing**: Added behavior-first fuzz coverage for backend failure injection, binary reader/writer failure atomicity, malformed Unicode text measurement and truncation, ZREV parsing, drawlist command programs, keybinding parsing, router dispatch, widget payloads, layout/render determinism, and theme validation.
+- **node/hsr**: Stabilized manual hot-reload checks so file watchers cannot race explicit reload assertions on Windows CI.
 
 ### Documentation
 
-- Documented virtual list sticky follow behavior, tool approval dialog modal input behavior, and `maxBlobBytes` engine config.
+- Documented deterministic fuzzing, testkit fuzz APIs, virtual list sticky follow behavior, tool approval dialog modal input behavior, and `maxBlobBytes` engine config.
+
+### Merged Pull Requests
+
+- [#405](https://github.com/RtlZeroMemory/Rezi/pull/405) feat: add virtual list sticky-follow mode, tool approval dialog
+- [#406](https://github.com/RtlZeroMemory/Rezi/pull/406) test: add deterministic fuzzing framework
+- [#407](https://github.com/RtlZeroMemory/Rezi/pull/407) fix: normalize test renderer rect origins
 
 ## [0.1.0-alpha.71] - 2026-04-27
 
