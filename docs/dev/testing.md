@@ -191,6 +191,9 @@ Do not add speculative failure assertions when the user-visible fallback is not
 actually specified.
 If the fallback is under-specified, document the gap and avoid over-claiming.
 
+For deterministic fuzz-lite and failure-injection test structure, see
+[Fuzzing](fuzzing.md).
+
 ## Acceptable and Unacceptable Oracles
 
 ### Usually acceptable

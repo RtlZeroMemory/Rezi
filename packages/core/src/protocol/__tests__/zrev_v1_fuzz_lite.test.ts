@@ -1,10 +1,10 @@
-import { assert, createRng, test } from "@rezi-ui/testkit";
+import { assert, randomInt, runFuzz, test } from "@rezi-ui/testkit";
 import { parseEventBatchV1 } from "../zrev_v1.js";
 
-test("parseEventBatchV1 fuzz-lite (seeded, bounded): never throws", () => {
-  const rng = createRng(0x5a52_4556); // 'ZREV'
+test("parseEventBatchV1 fuzz-lite (seeded, bounded): never throws", async () => {
   const maxLen = 4096;
-  const iters = 10_000;
+  const exhaustiveShortLengths = 65;
+  const randomIters = 10_000;
 
   function check(bytes: Uint8Array): void {
     let res: ReturnType<typeof parseEventBatchV1>;
@@ -26,12 +26,17 @@ test("parseEventBatchV1 fuzz-lite (seeded, bounded): never throws", () => {
     }
   }
 
-  for (let len = 0; len <= 64; len++) {
-    check(rng.bytes(len));
-  }
-
-  for (let i = 0; i < iters; i++) {
-    const len = rng.u32() % (maxLen + 1);
-    check(rng.bytes(len));
-  }
+  await runFuzz(
+    {
+      seed: 0x5a52_4556, // 'ZREV'
+      iterations: exhaustiveShortLengths + randomIters,
+      label: "parseEventBatchV1",
+    },
+    (ctx) => {
+      const len =
+        ctx.iteration < exhaustiveShortLengths ? ctx.iteration : randomInt(ctx.rng, 0, maxLen);
+      ctx.note(`len=${String(len)}`);
+      check(ctx.rng.bytes(len));
+    },
+  );
 });

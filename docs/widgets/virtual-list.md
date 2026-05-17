@@ -48,6 +48,8 @@ ui.virtualList({
 | `measureItemHeight` | `(item, index, ctx) => number` | internal measurer | Optional custom measurement callback for estimate mode |
 | `renderItem` | `(item, index, focused) => VNode` | **required** | Render function for each item |
 | `overscan` | `number` | `3` | Extra items rendered above/below viewport |
+| `ensureVisibleIndex` | `number` | - | Item index to keep visible after render, useful for tail-following logs or chat |
+| `ensureVisibleMode` | `"always" \| "sticky"` | `"always"` | Whether `ensureVisibleIndex` always repositions or follows only while attached |
 | `keyboardNavigation` | `boolean` | `true` | Enable arrow/page/home/end navigation |
 | `wrapAround` | `boolean` | `false` | Wrap selection from end to start |
 | `scrollDirection` | `"traditional" \| "natural"` | `"traditional"` | Mouse-wheel direction mode for this list |
@@ -62,6 +64,9 @@ ui.virtualList({
 - **Mouse scroll wheel** scrolls the list (3 lines per tick).
   - `scrollDirection: "traditional"` (default): wheel down moves viewport down.
   - `scrollDirection: "natural"`: wheel down moves content down (trackpad-style).
+- `ensureVisibleIndex` keeps a target item visible after render.
+  - `ensureVisibleMode: "always"` scrolls whenever the target is outside the viewport.
+  - `ensureVisibleMode: "sticky"` follows the target only while the user remains attached.
 - The `onScroll` callback fires for both keyboard navigation and mouse wheel input.
 
 ## Notes
@@ -72,6 +77,8 @@ ui.virtualList({
 - Returned `measureItemHeight` values are normalized before entering the measured-height cache: non-finite or non-positive values fall back to `estimatedHeight`, and positive values are truncated to whole cells with a minimum of 1.
 - In estimate mode, visible items are measured and cached, then scroll math is corrected on the following frame.
 - Measured-height cache is reused only while viewport width and item count stay the same; changing either triggers remeasurement.
+- Sticky follow is disabled when keyboard or wheel input moves away from the target, and re-enabled when the viewport reaches the target again.
+- Oversized sticky targets anchor their bottom edge to avoid scroll oscillation.
 - `renderItem` receives a `focused` flag for styling.
 - `selectionStyle` still applies to the selected row in estimate mode.
 - The `range` passed to `onScroll` is `[startIndex, endIndex)` and includes overscan.

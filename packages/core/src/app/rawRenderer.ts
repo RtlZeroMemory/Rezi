@@ -51,6 +51,7 @@ export class RawRenderer {
       backend: RuntimeBackend;
       builder?: DrawlistBuilder;
       maxDrawlistBytes?: number;
+      maxBlobBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
       drawlistEncodedStringCacheCap?: number;
@@ -59,6 +60,7 @@ export class RawRenderer {
     this.backend = opts.backend;
     const builderOpts = {
       ...(opts.maxDrawlistBytes === undefined ? {} : { maxDrawlistBytes: opts.maxDrawlistBytes }),
+      ...(opts.maxBlobBytes === undefined ? {} : { maxBlobBytes: opts.maxBlobBytes }),
       ...(opts.drawlistValidateParams === undefined
         ? {}
         : { validateParams: opts.drawlistValidateParams }),

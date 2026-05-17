@@ -74,6 +74,7 @@ import {
   routeSplitPaneMouse,
   routeTableMouseClick,
   routeToastMouseDown,
+  routeToolApprovalDialogMouseClick,
   routeTreeMouseClick,
   routeVirtualListMouseClick,
 } from "./mouseRouting.js";
@@ -124,6 +125,10 @@ type LastTreeClick = Readonly<{
   nodeIndex: number;
   nodeKey: string;
   timeMs: number;
+}> | null;
+type PressedToolApproval = Readonly<{
+  id: string;
+  action: "allow" | "deny" | "allowSession";
 }> | null;
 type SplitPaneDrag = Readonly<{
   id: string;
@@ -241,6 +246,7 @@ export type RouteEngineEventState = {
   lastFilePickerClick: LastFilePickerClick;
   pressedTree: PressedTree;
   lastTreeClick: LastTreeClick;
+  pressedToolApproval: PressedToolApproval;
   splitPaneDrag: SplitPaneDrag;
   splitPaneLastDividerDown: SplitPaneLastDividerDown;
 };
@@ -642,6 +648,21 @@ export function routeEngineEventImpl(
       }
     }
   }
+
+  localNeedsRender =
+    routeToolApprovalDialogMouseClick(event, {
+      mouseTargetId,
+      toolApprovalDialogById: ctx.toolApprovalDialogById,
+      rectById: ctx.rectById,
+      focusedActionById: ctx.toolApprovalFocusedActionById,
+      pressedToolApproval: state.pressedToolApproval,
+      requestRender: () => {
+        localNeedsRender = true;
+      },
+      setPressedToolApproval: (next) => {
+        state.pressedToolApproval = next;
+      },
+    }) || localNeedsRender;
 
   localNeedsRender =
     routeVirtualListMouseClick(event, {

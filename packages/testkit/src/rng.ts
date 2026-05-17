@@ -4,6 +4,7 @@ export type Rng = Readonly<{
 }>;
 
 export function createRng(seed: number): Rng {
+  assertUInt32("seed", seed);
   let state = seed >>> 0;
 
   function nextU32(): number {
@@ -44,4 +45,10 @@ export function createRng(seed: number): Rng {
       return out;
     },
   } as const;
+}
+
+function assertUInt32(name: string, value: number): void {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
+    throw new Error(`${name} must be a uint32 integer (got ${String(value)})`);
+  }
 }

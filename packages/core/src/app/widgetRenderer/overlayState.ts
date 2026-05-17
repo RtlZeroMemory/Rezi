@@ -248,6 +248,24 @@ function encodeLayerZIndex(baseZ: number | null, overlaySeq: number): number {
   return clampedBaseZ * LAYER_ZINDEX_SCALE + overlaySeq;
 }
 
+function registerToolApprovalDialogLayer(
+  params: OverlayPoolingContext,
+  id: string,
+  rect: Rect,
+  zIndex: number,
+): void {
+  params.pooledCloseOnEscape.set(id, false);
+  params.pooledCloseOnBackdrop.set(id, false);
+  params.layerRegistry.register({
+    id,
+    rect,
+    backdrop: "dim",
+    modal: true,
+    closeOnEscape: false,
+    zIndex,
+  });
+}
+
 function clearRoutingWidgetMaps(ctx: RoutingWidgetMaps): void {
   ctx.virtualListById.clear();
   ctx.buttonById.clear();
@@ -415,12 +433,19 @@ export function rebuildRoutingWidgetMapsAndOverlayState(
       case "diffViewer":
         params.diffViewerById.set((v.props as DiffViewerProps).id, v.props as DiffViewerProps);
         break;
-      case "toolApprovalDialog":
-        params.toolApprovalDialogById.set(
-          (v.props as ToolApprovalDialogProps).id,
-          v.props as ToolApprovalDialogProps,
-        );
+      case "toolApprovalDialog": {
+        const p = v.props as ToolApprovalDialogProps;
+        params.toolApprovalDialogById.set(p.id, p);
+        if (p.open === true) {
+          registerToolApprovalDialogLayer(
+            params,
+            p.id,
+            params.getRectForInstance(cur.instanceId),
+            overlaySeq++,
+          );
+        }
         break;
+      }
       case "logsConsole":
         params.logsConsoleById.set((v.props as LogsConsoleProps).id, v.props as LogsConsoleProps);
         break;
@@ -592,6 +617,18 @@ export function rebuildOverlayStateForLayout(params: RebuildOverlayStateForLayou
           closeOnEscape: false,
           zIndex,
         });
+        break;
+      }
+      case "toolApprovalDialog": {
+        const p = v.props as ToolApprovalDialogProps;
+        if (p.open === true) {
+          registerToolApprovalDialogLayer(
+            params,
+            p.id,
+            params.getRectForInstance(cur.instanceId),
+            overlaySeq++,
+          );
+        }
         break;
       }
       case "modal": {

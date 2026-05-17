@@ -1,6 +1,8 @@
 # @rezi-ui/testkit
 
-Test utilities and golden fixtures for Rezi.
+Test utilities, deterministic fuzz helpers, and golden fixtures for Rezi.
+
+Fuzz seeds are unsigned 32-bit integers.
 
 Most applications do not need this package directly.
 
