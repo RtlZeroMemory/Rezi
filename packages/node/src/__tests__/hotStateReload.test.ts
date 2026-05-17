@@ -8,6 +8,8 @@ import { type HotStateReloadErrorContext, createHotStateReload } from "../dev/ho
 
 type State = Readonly<{ count: number }>;
 
+const MANUAL_RELOAD_DEBOUNCE_MS = 10_000;
+
 async function withTempDir<T>(run: (dir: string) => Promise<T> | T): Promise<T> {
   const dir = mkdtempSync(join(tmpdir(), "rezi-hsr-test-"));
   try {
@@ -192,7 +194,7 @@ test("createHotStateReload reloadNow refreshes transitive imports and swaps view
       },
       viewModule,
       moduleRoot: dir,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
     });
 
     try {
@@ -236,7 +238,7 @@ test("createHotStateReload resolves bare package imports from nearest node_modul
       },
       viewModule,
       moduleRoot: src,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
     });
 
     try {
@@ -276,7 +278,7 @@ test("createHotStateReload keeps previous view when reload fails", async () => {
       },
       viewModule,
       moduleRoot: dir,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
       onError: (_error, context) => {
         errors.push(context);
       },
@@ -471,7 +473,7 @@ test("createHotStateReload reloadNow refreshes transitive imports and swaps rout
       },
       routesModule,
       moduleRoot: dir,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
     });
 
     try {
@@ -509,7 +511,7 @@ test("createHotStateReload keeps previous routes when route reload fails", async
       },
       routesModule,
       moduleRoot: dir,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
       onError: (_error, context) => {
         errors.push(context);
       },
@@ -561,7 +563,7 @@ test("createHotStateReload routes mode supports default export resolver", async 
       },
       routesModule,
       moduleRoot: dir,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
     });
 
     try {
@@ -594,7 +596,7 @@ test("createHotStateReload routes mode reports invalid exports and keeps previou
       },
       routesModule: stableModule,
       moduleRoot: dir,
-      debounceMs: 25,
+      debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
       onError: (_error, context) => {
         contexts.push(context);
       },
@@ -616,7 +618,7 @@ test("createHotStateReload routes mode reports invalid exports and keeps previou
         },
         routesModule: invalidModule,
         moduleRoot: dir,
-        debounceMs: 25,
+        debounceMs: MANUAL_RELOAD_DEBOUNCE_MS,
         onError: (_error, context) => {
           contexts.push(context);
         },
