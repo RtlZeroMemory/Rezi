@@ -1,0 +1,51 @@
+# Fuzzing
+
+Rezi fuzz tests are deterministic, bounded `node:test` suites. They should use
+`@rezi-ui/testkit` helpers so failures report:
+
+- suite seed
+- iteration
+- derived case seed
+- case notes such as input length, viewport, or injected fault points
+
+Seeds are unsigned 32-bit integers. Values outside `0..0xffffffff` are rejected
+instead of truncated so reproduction commands always identify one exact run.
+
+Run all package fuzz suites after a build:
+
+```bash
+npm run test:fuzz
+```
+
+For a single built test file:
+
+```bash
+node --test packages/core/dist/protocol/__tests__/zrev_v1_fuzz_lite.test.js
+```
+
+## Coverage Targets
+
+Keep fuzz targets behavior-first and contract-backed:
+
+- parsers and binary protocols: never throw on malformed bytes; return
+  structured errors
+- binary readers/writers: preserve byte order, bounds checks, and failure
+  atomicity
+- drawlist builders: valid public command programs produce well-formed bounded
+  ZRDL; invalid public inputs return structured build errors without throwing
+- keybinding parsers: valid public syntax round-trips through canonical strings;
+  malformed syntax returns structured parse errors
+- router paths: key, mouse, hit-test, and wheel routing only dispatch to
+  enabled intended targets and clamp scroll updates
+- widgets: disabled controls suppress interaction, enabled controls emit
+  documented payloads, and duplicate interactive ids fail deterministically
+- layout/text/render paths: never throw on valid widget trees or malformed text
+  data; outputs remain bounded and deterministic
+- theme and style resolution: valid tokens resolve exactly; invalid tokens and
+  paths fail or fall back deterministically
+- app runtime and backend integration: injected backend failures produce
+  structured fatal events, stop safely, and dispose when the runtime faults
+
+Do not add unbounded randomness or wall-clock-dependent fuzzing to CI. Increase
+iteration counts through explicit seeds and focused profiles, not through
+environment-dependent loops.

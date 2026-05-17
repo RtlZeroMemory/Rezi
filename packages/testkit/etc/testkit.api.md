@@ -14,9 +14,77 @@ export { assert }
 export function assertBytesEqual(actual: Uint8Array, expected: Uint8Array, label?: string): void;
 
 // @public (undocumented)
+export function chance(rng: Rng, percent: number): boolean;
+
+// @public (undocumented)
+export function createFuzzFaultPlan<T extends string>(ctx: FuzzIterationContext, points: readonly T[], opts?: FuzzFaultPlanOptions): FuzzFaultPlan<T>;
+
+// @public (undocumented)
 export function createRng(seed: number): Rng;
 
+// @public (undocumented)
+export function deriveFuzzCaseSeed(seed: number, iteration: number): number;
+
 export { describe }
+
+// @public (undocumented)
+export type FuzzBody = (ctx: FuzzIterationContext) => void | Promise<void>;
+
+// @public (undocumented)
+export class FuzzFailureError extends Error {
+    constructor(ctx: Pick<FuzzIterationContext, "label" | "seed" | "iteration" | "caseSeed">, cause: unknown, notes: readonly string[]);
+    // (undocumented)
+    readonly caseSeed: number;
+    // (undocumented)
+    readonly iteration: number;
+    // (undocumented)
+    readonly label: string;
+    // (undocumented)
+    readonly notes: readonly string[];
+    // (undocumented)
+    readonly seed: number;
+}
+
+// @public (undocumented)
+export type FuzzFaultPlan<T extends string> = Readonly<{
+    selected: readonly T[];
+    has: (point: T) => boolean;
+    describe: () => string;
+}>;
+
+// @public (undocumented)
+export type FuzzFaultPlanOptions = Readonly<{
+    minFailures?: number;
+    maxFailures?: number;
+}>;
+
+// @public (undocumented)
+export type FuzzIterationContext = Readonly<{
+    label: string;
+    seed: number;
+    iteration: number;
+    caseSeed: number;
+    rng: Rng;
+    note: (message: string) => void;
+    fail: (message: string, cause?: unknown) => never;
+}>;
+
+// @public (undocumented)
+export type FuzzRunOptions = Readonly<{
+    seed: number;
+    iterations: number;
+    label?: string;
+}>;
+
+// @public (undocumented)
+export type FuzzRunSummary = Readonly<{
+    label: string;
+    seed: number;
+    iterations: number;
+}>;
+
+// @public (undocumented)
+export function fuzzTest(name: string, options: FuzzRunOptions, body: FuzzBody): void;
 
 // @public (undocumented)
 export function hexdump(bytes: Uint8Array, opts?: HexdumpOptions): string;
@@ -28,7 +96,23 @@ export type HexdumpOptions = Readonly<{
 }>;
 
 // @public (undocumented)
+export function hexSeed(seed: number): string;
+
+// @public (undocumented)
 export function matchesSnapshot(actualValue: string, snapshotName: string, opts?: SnapshotMatchOptions): void;
+
+// @public (undocumented)
+export function pick<T>(rng: Rng, values: readonly T[]): T;
+
+// @public (undocumented)
+export function randomAsciiString(rng: Rng, opts: Readonly<{
+    minLength?: number;
+    maxLength: number;
+    alphabet?: string;
+}>): string;
+
+// @public (undocumented)
+export function randomInt(rng: Rng, min: number, max: number): number;
 
 // @public (undocumented)
 export function readFixture(relPath: string): Promise<Uint8Array>;
@@ -38,6 +122,9 @@ export type Rng = Readonly<{
     u32(): number;
     bytes(len: number): Uint8Array;
 }>;
+
+// @public (undocumented)
+export function runFuzz(options: FuzzRunOptions, body: FuzzBody): Promise<FuzzRunSummary>;
 
 // @public (undocumented)
 export type SnapshotMatchOptions = Readonly<{

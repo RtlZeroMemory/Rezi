@@ -10,6 +10,12 @@ test("createRng: same seed => same u32 sequence", () => {
   assert.deepEqual(aa, bb);
 });
 
+test("createRng: seed must be a uint32 integer", () => {
+  assert.throws(() => createRng(-1), /seed must be a uint32 integer/u);
+  assert.throws(() => createRng(1.5), /seed must be a uint32 integer/u);
+  assert.throws(() => createRng(0x1_0000_0000), /seed must be a uint32 integer/u);
+});
+
 test("createRng: bytes() is deterministic and little-endian from u32()", () => {
   const r1 = createRng(1);
   const r2 = createRng(1);
