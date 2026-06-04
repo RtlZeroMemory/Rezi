@@ -412,7 +412,10 @@ jobs:
           package-manager-cache: false
 
       - name: Update npm
-        run: npm install -g npm@^11.10.0
+        run: npm install -g npm@^11.16.0
+
+      - name: Confirm npm version
+        run: npm --version
 
       - name: Install
         run: npm ci
@@ -438,22 +441,37 @@ jobs:
       - name: Verify npm pack contents + install smoke
         run: node scripts/verify-native-pack.mjs
 
+      - name: Prepare npm OIDC token
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "GitHub OIDC request environment is missing. Check id-token: write on this job." >&2
+            exit 1
+          fi
+          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm:registry.npmjs.org"
+          id_token="$(curl -fsSL -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$token_url" | node -e "let input=''; process.stdin.on('data', d => input += d); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).value || ''));")"
+          if [ -z "$id_token" ]; then
+            echo "GitHub OIDC token response was empty." >&2
+            exit 1
+          fi
+          echo "::add-mask::$id_token"
+          echo "NPM_ID_TOKEN=$id_token" >> "$GITHUB_ENV"
+
       # Publish in dependency order. Separate steps so a single failure
       # doesn't block the rest and each package gets its own status in the UI.
       - name: Publish @rezi-ui/core
-        run: npm publish -w @rezi-ui/core --access public --tag latest
+        run: npm publish -w @rezi-ui/core --access public --tag latest --loglevel verbose
 
       - name: Publish @rezi-ui/native
-        run: npm publish -w @rezi-ui/native --access public --tag latest
+        run: npm publish -w @rezi-ui/native --access public --tag latest --loglevel verbose
 
       - name: Publish @rezi-ui/testkit
-        run: npm publish -w @rezi-ui/testkit --access public --tag latest
+        run: npm publish -w @rezi-ui/testkit --access public --tag latest --loglevel verbose
 
       - name: Publish @rezi-ui/node
-        run: npm publish -w @rezi-ui/node --access public --tag latest
+        run: npm publish -w @rezi-ui/node --access public --tag latest --loglevel verbose
 
       - name: Publish @rezi-ui/jsx
-        run: npm publish -w @rezi-ui/jsx --access public --tag latest
+        run: npm publish -w @rezi-ui/jsx --access public --tag latest --loglevel verbose
 
       - name: Publish create-rezi
-        run: npm publish -w create-rezi --access public --tag latest
+        run: npm publish -w create-rezi --access public --tag latest --loglevel verbose

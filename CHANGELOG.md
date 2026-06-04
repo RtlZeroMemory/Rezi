@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.80] - 2026-06-04
+
+### Release Infrastructure
+
+- **npm**: Fetch the GitHub OIDC token explicitly for trusted publishing and log publish diagnostics.
+- **release**: Carries the `0.1.0-alpha.73` runtime fixes through a working npm-published alpha.
+
 ## [0.1.0-alpha.79] - 2026-06-04
 
 ### Release Infrastructure
