@@ -45,7 +45,7 @@ class BinaryWriter {
 }
 ```
 
-The writer additionally enforces that `writeU32` and `writeI32` are called only at 4-byte aligned offsets. Calling at a misaligned offset throws `ZR_MISALIGNED`.
+The writer additionally enforces that constructor capacity is bounded and that `writeU32` and `writeI32` are called only at 4-byte aligned offsets. Calling at a misaligned offset throws `ZR_MISALIGNED`.
 
 ## ZrBinaryError
 

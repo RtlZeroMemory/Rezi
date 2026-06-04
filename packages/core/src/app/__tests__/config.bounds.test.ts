@@ -34,3 +34,35 @@ test("config bounds: maxEventBytes must be <= 4 MiB", () => {
       err.message.includes("maxEventBytes must be <= 4194304"),
   );
 });
+
+test("config bounds: maxDrawlistBytes must be <= 8 MiB", () => {
+  const backend = new StubBackend();
+  assert.throws(
+    () =>
+      createApp({
+        backend,
+        initialState: { value: 0 },
+        config: { maxDrawlistBytes: (8 << 20) + 1 },
+      }),
+    (err: unknown) =>
+      err instanceof ZrUiError &&
+      err.code === "ZRUI_INVALID_PROPS" &&
+      err.message.includes("maxDrawlistBytes must be <= 8388608"),
+  );
+});
+
+test("config bounds: maxBlobBytes must be <= 4 MiB", () => {
+  const backend = new StubBackend();
+  assert.throws(
+    () =>
+      createApp({
+        backend,
+        initialState: { value: 0 },
+        config: { maxBlobBytes: (4 << 20) + 1 },
+      }),
+    (err: unknown) =>
+      err instanceof ZrUiError &&
+      err.code === "ZRUI_INVALID_PROPS" &&
+      err.message.includes("maxBlobBytes must be <= 4194304"),
+  );
+});

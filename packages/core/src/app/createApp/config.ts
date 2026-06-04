@@ -50,6 +50,8 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
 
 const MAX_SAFE_FPS_CAP = 1000;
 const MAX_SAFE_EVENT_BYTES = 4 << 20; /* 4 MiB */
+const MAX_SAFE_DRAWLIST_BYTES = 8 << 20; /* 8 MiB */
+const MAX_SAFE_BLOB_BYTES = 4 << 20; /* 4 MiB */
 
 function invalidProps(detail: string): never {
   throw new ZrUiError("ZRUI_INVALID_PROPS", detail);
@@ -84,11 +86,15 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
   const maxDrawlistBytes =
     config.maxDrawlistBytes === undefined
       ? DEFAULT_CONFIG.maxDrawlistBytes
-      : requirePositiveInt("maxDrawlistBytes", config.maxDrawlistBytes);
+      : requirePositiveIntAtMost(
+          "maxDrawlistBytes",
+          config.maxDrawlistBytes,
+          MAX_SAFE_DRAWLIST_BYTES,
+        );
   const maxBlobBytes =
     config.maxBlobBytes === undefined
       ? DEFAULT_CONFIG.maxBlobBytes
-      : requirePositiveInt("maxBlobBytes", config.maxBlobBytes);
+      : requirePositiveIntAtMost("maxBlobBytes", config.maxBlobBytes, MAX_SAFE_BLOB_BYTES);
   const rootPadding =
     config.rootPadding === undefined
       ? DEFAULT_CONFIG.rootPadding

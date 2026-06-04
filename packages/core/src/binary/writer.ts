@@ -17,6 +17,8 @@
 
 import { ZrBinaryError } from "./parseError.js";
 
+const MAX_WRITER_CAPACITY_BYTES = 16 << 20; /* 16 MiB */
+
 /**
  * Bounds-checked binary writer with cursor tracking.
  *
@@ -30,9 +32,18 @@ export class BinaryWriter {
 
   constructor(capacity: number) {
     if (!Number.isInteger(capacity) || capacity < 0) {
-      throw new Error(
-        `BinaryWriter: capacity must be a non-negative integer (got ${String(capacity)})`,
-      );
+      throw new ZrBinaryError({
+        code: "ZR_LIMIT",
+        offset: 0,
+        detail: `capacity must be a non-negative integer (got ${String(capacity)})`,
+      });
+    }
+    if (capacity > MAX_WRITER_CAPACITY_BYTES) {
+      throw new ZrBinaryError({
+        code: "ZR_LIMIT",
+        offset: 0,
+        detail: `capacity ${String(capacity)} exceeds maximum ${String(MAX_WRITER_CAPACITY_BYTES)}`,
+      });
     }
     this.buf = new Uint8Array(capacity);
     this.dv = new DataView(this.buf.buffer, this.buf.byteOffset, this.buf.byteLength);
