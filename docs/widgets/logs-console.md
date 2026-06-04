@@ -23,7 +23,7 @@ ui.logsConsole({
 |------|------|---------|-------------|
 | `id` | `string` | **required** | Widget identifier |
 | `entries` | `LogEntry[]` | **required** | Log entries to render |
-| `autoScroll` | `boolean` | - | Auto-scroll to newest entry |
+| `autoScroll` | `boolean` | - | Render newest entries regardless of `scrollTop` when true |
 | `levelFilter` | `LogLevel[]` | - | Filter by severity |
 | `sourceFilter` | `string[]` | - | Filter by source/category |
 | `searchQuery` | `string` | - | Text filter |
@@ -46,6 +46,8 @@ A vertical scrollbar is rendered on the right edge when entries exceed the viewp
 
 - **Mouse scroll wheel** scrolls log entries, firing the `onScroll` callback. Scroll works when hovering over the widget, even without focus.
 - **Clicking** the console area focuses the widget.
+
+Set `autoScroll: true` while the console should stay pinned to the newest entry. Set it to `false` when preserving a user-controlled `scrollTop`.
 
 ## Notes
 

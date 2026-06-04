@@ -768,6 +768,70 @@ describe("renderer regressions", () => {
     assert.equal(virtualListStore.get(id).scrollTop, 5);
   });
 
+  test("logsConsole autoScroll renders newest entries from controlled zero scroll", () => {
+    const entries = Array.from({ length: 8 }, (_, index) => ({
+      id: `log-${String(index)}`,
+      timestamp: index * 1000,
+      level: "info" as const,
+      source: "app",
+      message: `message-${String(index)}`,
+    }));
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.logsConsole({
+          id: "logs-autoscroll",
+          entries,
+          scrollTop: 0,
+          autoScroll: true,
+          onScroll: () => {},
+        }),
+        { cols: 64, rows: 3 },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("message-7")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("message-0")),
+      false,
+    );
+  });
+
+  test("logsConsole without autoScroll preserves controlled scrollTop", () => {
+    const entries = Array.from({ length: 8 }, (_, index) => ({
+      id: `manual-log-${String(index)}`,
+      timestamp: index * 1000,
+      level: "info" as const,
+      source: "app",
+      message: `manual-${String(index)}`,
+    }));
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.logsConsole({
+          id: "logs-manual-scroll",
+          entries,
+          scrollTop: 0,
+          autoScroll: false,
+          onScroll: () => {},
+        }),
+        { cols: 64, rows: 3 },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("manual-0")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("manual-7")),
+      false,
+    );
+  });
+
   test("virtualList estimate mode uses custom measureItemHeight context", () => {
     const virtualListStore = createVirtualListStateStore();
     const calls: Array<
