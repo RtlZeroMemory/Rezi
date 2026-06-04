@@ -1,12 +1,12 @@
 {
   "name": "@rezi-ui/node",
-  "version": "0.1.0-alpha.78",
+  "version": "0.1.0-alpha.79",
   "description": "Node.js/Bun backend for running Rezi terminal applications with native engine integration.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RtlZeroMemory/Rezi",
+    "url": "https://github.com/rtlzeromemory/Rezi",
     "directory": "packages/node"
   },
   "bugs": {
@@ -30,8 +30,8 @@
     "bun": ">=1.3.0"
   },
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-alpha.78",
-    "@rezi-ui/native": "0.1.0-alpha.78",
+    "@rezi-ui/core": "0.1.0-alpha.79",
+    "@rezi-ui/native": "0.1.0-alpha.79",
     "@xterm/headless": "^6.0.0",
     "node-pty": "^1.1.0"
   }

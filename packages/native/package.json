@@ -1,12 +1,12 @@
 {
   "name": "@rezi-ui/native",
-  "version": "0.1.0-alpha.78",
+  "version": "0.1.0-alpha.79",
   "description": "Native addon for Rezi (napi-rs + Zireael engine).",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RtlZeroMemory/Rezi",
+    "url": "https://github.com/rtlzeromemory/Rezi",
     "directory": "packages/native"
   },
   "bugs": {
