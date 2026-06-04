@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.74] - 2026-06-04
+
+### Release Infrastructure
+
+- **npm**: Switched the release workflow to npm trusted publishing so `@rezi-ui/*` packages and `create-rezi` publish from GitHub Actions without the stale token path.
+- **release**: Carries the `0.1.0-alpha.73` runtime fixes through a working npm-published alpha.
+
 ## [0.1.0-alpha.73] - 2026-06-04
 
 ### Bug Fixes
