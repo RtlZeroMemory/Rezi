@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.81] - 2026-06-04
+
+### Release Infrastructure
+
+- **npm**: Match published package repository metadata to GitHub Actions provenance validation.
+- **release**: Carries the `0.1.0-alpha.73` runtime fixes through a working npm-published alpha.
+
 ## [0.1.0-alpha.80] - 2026-06-04
 
 ### Release Infrastructure
