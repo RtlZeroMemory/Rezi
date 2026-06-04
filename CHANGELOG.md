@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.77] - 2026-06-04
+
+### Release Infrastructure
+
+- **npm**: Use the official GitHub Actions trusted-publishing shape for npm releases without a deployment environment requirement.
+- **release**: Carries the `0.1.0-alpha.73` runtime fixes through a working npm-published alpha.
+
 ## [0.1.0-alpha.76] - 2026-06-04
 
 ### Release Infrastructure

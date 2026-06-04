@@ -408,6 +408,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+          registry-url: https://registry.npmjs.org
 
       - name: Update npm
         run: npm install -g npm@^11.10.0
@@ -439,31 +440,19 @@ jobs:
       # Publish in dependency order. Separate steps so a single failure
       # doesn't block the rest and each package gets its own status in the UI.
       - name: Publish @rezi-ui/core
-        run: |
-          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
-          npm publish -w @rezi-ui/core --access public --tag latest --registry https://registry.npmjs.org
+        run: npm publish -w @rezi-ui/core --access public --tag latest
 
       - name: Publish @rezi-ui/native
-        run: |
-          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
-          npm publish -w @rezi-ui/native --access public --tag latest --registry https://registry.npmjs.org
+        run: npm publish -w @rezi-ui/native --access public --tag latest
 
       - name: Publish @rezi-ui/testkit
-        run: |
-          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
-          npm publish -w @rezi-ui/testkit --access public --tag latest --registry https://registry.npmjs.org
+        run: npm publish -w @rezi-ui/testkit --access public --tag latest
 
       - name: Publish @rezi-ui/node
-        run: |
-          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
-          npm publish -w @rezi-ui/node --access public --tag latest --registry https://registry.npmjs.org
+        run: npm publish -w @rezi-ui/node --access public --tag latest
 
       - name: Publish @rezi-ui/jsx
-        run: |
-          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
-          npm publish -w @rezi-ui/jsx --access public --tag latest --registry https://registry.npmjs.org
+        run: npm publish -w @rezi-ui/jsx --access public --tag latest
 
       - name: Publish create-rezi
-        run: |
-          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
-          npm publish -w create-rezi --access public --tag latest --registry https://registry.npmjs.org
+        run: npm publish -w create-rezi --access public --tag latest
