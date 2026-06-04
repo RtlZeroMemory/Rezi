@@ -385,7 +385,6 @@ jobs:
   publish:
     name: publish (npm)
     runs-on: ubuntu-latest
-    environment: npm-publish
     permissions:
       contents: read
       id-token: write
@@ -408,8 +407,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          registry-url: https://registry.npmjs.org
+          node-version: "24"
 
       - name: Update npm
         run: npm install -g npm@^11.10.0
@@ -441,19 +439,31 @@ jobs:
       # Publish in dependency order. Separate steps so a single failure
       # doesn't block the rest and each package gets its own status in the UI.
       - name: Publish @rezi-ui/core
-        run: npm publish -w @rezi-ui/core --access public --tag latest
+        run: |
+          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
+          npm publish -w @rezi-ui/core --access public --tag latest --registry https://registry.npmjs.org
 
       - name: Publish @rezi-ui/native
-        run: npm publish -w @rezi-ui/native --access public --tag latest
+        run: |
+          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
+          npm publish -w @rezi-ui/native --access public --tag latest --registry https://registry.npmjs.org
 
       - name: Publish @rezi-ui/testkit
-        run: npm publish -w @rezi-ui/testkit --access public --tag latest
+        run: |
+          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
+          npm publish -w @rezi-ui/testkit --access public --tag latest --registry https://registry.npmjs.org
 
       - name: Publish @rezi-ui/node
-        run: npm publish -w @rezi-ui/node --access public --tag latest
+        run: |
+          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
+          npm publish -w @rezi-ui/node --access public --tag latest --registry https://registry.npmjs.org
 
       - name: Publish @rezi-ui/jsx
-        run: npm publish -w @rezi-ui/jsx --access public --tag latest
+        run: |
+          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
+          npm publish -w @rezi-ui/jsx --access public --tag latest --registry https://registry.npmjs.org
 
       - name: Publish create-rezi
-        run: npm publish -w create-rezi --access public --tag latest
+        run: |
+          unset NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG
+          npm publish -w create-rezi --access public --tag latest --registry https://registry.npmjs.org
