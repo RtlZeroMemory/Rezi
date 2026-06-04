@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.75] - 2026-06-04
+
+### Release Infrastructure
+
+- **npm**: Publish prerelease packages with the explicit `latest` dist-tag required by npm 11.
+- **release**: Carries the `0.1.0-alpha.73` runtime fixes through a working npm-published alpha.
+
 ## [0.1.0-alpha.74] - 2026-06-04
 
 ### Release Infrastructure

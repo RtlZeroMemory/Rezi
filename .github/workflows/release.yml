@@ -441,19 +441,19 @@ jobs:
       # Publish in dependency order. Separate steps so a single failure
       # doesn't block the rest and each package gets its own status in the UI.
       - name: Publish @rezi-ui/core
-        run: npm publish -w @rezi-ui/core --access public
+        run: npm publish -w @rezi-ui/core --access public --tag latest
 
       - name: Publish @rezi-ui/native
-        run: npm publish -w @rezi-ui/native --access public
+        run: npm publish -w @rezi-ui/native --access public --tag latest
 
       - name: Publish @rezi-ui/testkit
-        run: npm publish -w @rezi-ui/testkit --access public
+        run: npm publish -w @rezi-ui/testkit --access public --tag latest
 
       - name: Publish @rezi-ui/node
-        run: npm publish -w @rezi-ui/node --access public
+        run: npm publish -w @rezi-ui/node --access public --tag latest
 
       - name: Publish @rezi-ui/jsx
-        run: npm publish -w @rezi-ui/jsx --access public
+        run: npm publish -w @rezi-ui/jsx --access public --tag latest
 
       - name: Publish create-rezi
-        run: npm publish -w create-rezi --access public
+        run: npm publish -w create-rezi --access public --tag latest
