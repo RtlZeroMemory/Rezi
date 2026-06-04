@@ -617,7 +617,7 @@ export type LogsConsoleProps = Readonly<{
   accessibleLabel?: string;
   /** Log entries. */
   entries: readonly LogEntry[];
-  /** Auto-scroll to bottom (default: true). */
+  /** Auto-scroll to bottom when true. */
   autoScroll?: boolean;
   /** Filter by log level. */
   levelFilter?: readonly LogLevel[];

@@ -6,6 +6,7 @@ import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
 import { tokenizeCodeEditorLineWithCustom } from "../../../widgets/codeEditorSyntax.js";
 import {
+  computeAutoScrollPosition,
   formatCost,
   formatDuration,
   formatTimestamp,
@@ -859,7 +860,13 @@ export function renderEditorWidget(
 
       builder.pushClip(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
 
-      const startIndex = Math.max(0, props.scrollTop);
+      const effectiveScrollTop = computeAutoScrollPosition(
+        props.scrollTop,
+        filtered.length,
+        contentRect.h,
+        props.autoScroll === true,
+      );
+      const startIndex = Math.max(0, effectiveScrollTop);
       const endIndex = Math.min(filtered.length, startIndex + contentRect.h);
 
       const hasScrollbar = contentRect.h > 0 && filtered.length > contentRect.h;
@@ -965,7 +972,7 @@ export function renderEditorWidget(
           ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
           : scrollbarBaseStyle;
         const maxScroll = Math.max(0, filtered.length - contentRect.h);
-        const position = maxScroll > 0 ? props.scrollTop / maxScroll : 0;
+        const position = maxScroll > 0 ? effectiveScrollTop / maxScroll : 0;
         const viewportRatio =
           filtered.length > 0 ? Math.min(1, contentRect.h / filtered.length) : 1;
         const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];

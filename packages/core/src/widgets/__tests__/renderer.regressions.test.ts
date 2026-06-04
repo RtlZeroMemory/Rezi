@@ -1,8 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
+import { parseDrawTextCommands, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
+import { SCROLLBAR_MINIMAL } from "../../renderer/scrollbar.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import {
@@ -766,6 +767,97 @@ describe("renderer regressions", () => {
     );
 
     assert.equal(virtualListStore.get(id).scrollTop, 5);
+  });
+
+  test("logsConsole autoScroll renders newest entries from controlled zero scroll", () => {
+    const entries = Array.from({ length: 8 }, (_, index) => ({
+      id: `log-${String(index)}`,
+      timestamp: index * 1000,
+      level: "info" as const,
+      source: "app",
+      message: `message-${String(index)}`,
+    }));
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.logsConsole({
+          id: "logs-autoscroll",
+          entries,
+          scrollTop: 0,
+          autoScroll: true,
+          onScroll: () => {},
+        }),
+        { cols: 64, rows: 3 },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("message-7")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("message-0")),
+      false,
+    );
+  });
+
+  test("logsConsole autoScroll positions scrollbar at the rendered tail", () => {
+    const entries = Array.from({ length: 8 }, (_, index) => ({
+      id: `thumb-log-${String(index)}`,
+      timestamp: index * 1000,
+      level: "info" as const,
+      source: "app",
+      message: `thumb-${String(index)}`,
+    }));
+
+    const commands = parseDrawTextCommands(
+      renderBytes(
+        ui.logsConsole({
+          id: "logs-autoscroll-scrollbar",
+          entries,
+          scrollTop: 0,
+          autoScroll: true,
+          onScroll: () => {},
+        }),
+        { cols: 64, rows: 3 },
+      ),
+    );
+
+    const scrollbarThumbs = commands.filter((cmd) => cmd.text === SCROLLBAR_MINIMAL.thumb);
+    assert.equal(scrollbarThumbs.length, 1);
+    assert.equal(scrollbarThumbs[0]?.y, 2);
+  });
+
+  test("logsConsole without autoScroll preserves controlled scrollTop", () => {
+    const entries = Array.from({ length: 8 }, (_, index) => ({
+      id: `manual-log-${String(index)}`,
+      timestamp: index * 1000,
+      level: "info" as const,
+      source: "app",
+      message: `manual-${String(index)}`,
+    }));
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.logsConsole({
+          id: "logs-manual-scroll",
+          entries,
+          scrollTop: 0,
+          autoScroll: false,
+          onScroll: () => {},
+        }),
+        { cols: 64, rows: 3 },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("manual-0")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("manual-7")),
+      false,
+    );
   });
 
   test("virtualList estimate mode uses custom measureItemHeight context", () => {
