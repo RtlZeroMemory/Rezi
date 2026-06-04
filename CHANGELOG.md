@@ -6,6 +6,23 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.73] - 2026-06-04
+
+### Bug Fixes
+
+- **core/binary**: Bounded `BinaryWriter` constructor capacity and report invalid or oversized capacities as structured `ZR_LIMIT` errors.
+- **core/config**: Added upper bounds for drawlist and blob byte limits so app config cannot request unbounded renderer buffers.
+- **core/logs-console**: Fixed `autoScroll` so pinned logs render the newest entries and the scrollbar thumb follows the effective rendered scroll position.
+
+### Tests
+
+- **core/logs-console**: Added renderer regressions for pinned auto-scroll, manual scroll preservation, and scrollbar position at the rendered tail.
+
+### Merged Pull Requests
+
+- [#411](https://github.com/RtlZeroMemory/Rezi/pull/411) fix: bound binary and drawlist capacities
+- [#412](https://github.com/RtlZeroMemory/Rezi/pull/412) fix: apply logs console auto scroll
+
 ## [0.1.0-alpha.72] - 2026-05-17
 
 ### Added
