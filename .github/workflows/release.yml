@@ -385,6 +385,10 @@ jobs:
   publish:
     name: publish (npm)
     runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
     needs:
       - native-prebuild
       - linux-arm64-gnu
@@ -405,8 +409,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
           registry-url: https://registry.npmjs.org
+
+      - name: Update npm
+        run: npm install -g npm@^11.10.0
 
       - name: Install
         run: npm ci
@@ -435,31 +441,19 @@ jobs:
       # Publish in dependency order. Separate steps so a single failure
       # doesn't block the rest and each package gets its own status in the UI.
       - name: Publish @rezi-ui/core
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @rezi-ui/core --access public
 
       - name: Publish @rezi-ui/native
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @rezi-ui/native --access public
 
       - name: Publish @rezi-ui/testkit
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @rezi-ui/testkit --access public
 
       - name: Publish @rezi-ui/node
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @rezi-ui/node --access public
 
       - name: Publish @rezi-ui/jsx
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @rezi-ui/jsx --access public
 
       - name: Publish create-rezi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w create-rezi --access public
