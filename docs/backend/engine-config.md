@@ -82,7 +82,7 @@ backend or extremely large paste events.
 
 | Detail   | Value |
 |----------|-------|
-| Type     | `number` (positive integer) |
+| Type     | `number` (positive integer, `<= 8 << 20`) |
 | Default  | `2 << 20` (2 MiB) |
 
 Maximum byte size of a single rendered drawlist frame. If the builder exceeds
@@ -99,7 +99,7 @@ config: {
 
 | Detail   | Value |
 |----------|-------|
-| Type     | `number` (positive integer) |
+| Type     | `number` (positive integer, `<= 4 << 20`) |
 | Default  | `512 << 10` (512 KiB) |
 
 Maximum total byte size of the drawlist blob pool for a frame. If binary payloads
