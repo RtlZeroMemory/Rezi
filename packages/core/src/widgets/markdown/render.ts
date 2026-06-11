@@ -312,13 +312,15 @@ function renderBlock(block: MarkdownBlock, ctx: RenderCtx): VNode {
     case "codeBlock":
       return renderCodeBlock(block.language, block.text);
     case "blockquote":
-      // A GitHub-style left bar needs a height-hugging vertical rule, which
-      // the layout engine cannot express yet (vertical dividers fill maxH).
-      // A dim rounded box stays distinct from sharp-cornered code blocks.
+      // GitHub-style left bar: a box with only its left border enabled.
       return box(
         {
-          border: "rounded",
-          px: 1,
+          border: "single",
+          borderTop: false,
+          borderRight: false,
+          borderBottom: false,
+          borderLeft: true,
+          pl: 1,
           gap: ctx.blockGap,
           borderStyle: { dim: true },
           inheritStyle: { dim: true },

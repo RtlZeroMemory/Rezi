@@ -33,6 +33,21 @@ Use `run()` for batteries-included lifecycle wiring in Node/Bun apps:
 
 Use `start()` directly when you need manual signal/process control.
 
+Use `ready()` to wait for startup from outside the `run()` call — for
+example when a timer, socket, or stream feeds `update()` while `run()`
+blocks. Calling `update()` before startup completes throws
+`ZRUI_INVALID_STATE`; `ready()` removes the race:
+
+```ts
+const running = app.run();
+await app.ready();
+feed.on("data", (chunk) => app.update((s) => apply(s, chunk)));
+await running;
+```
+
+`ready()` resolves immediately when the app is already running, and rejects
+if startup fails or the app is disposed before starting.
+
 ## State machine diagram
 
 ```mermaid

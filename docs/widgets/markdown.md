@@ -34,7 +34,7 @@ ui.markdown("# Title\n\nShips `ui.markdown` with **GFM subset** support.", {
 | Fenced + indented code blocks | Fence info maps to CodeEditor tokenizer presets for monochrome syntax emphasis |
 | Lists | Ordered (`1.` / `1)`, start number kept), unordered, nested, tight |
 | Task items `- [x]` | Checked markers render dim |
-| Blockquotes | Dim rounded box (nesting supported) |
+| Blockquotes | GitHub-style dim left bar (nesting supported) |
 | Pipe tables | `:-`, `:-:`, `-:` alignment; `\|` escapes; ragged rows normalized |
 | `---` / `* * *` / `___` | Thematic break renders as a divider |
 | Entities | `&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`, `&nbsp;`, numeric forms |

@@ -74,11 +74,13 @@ export function renderBoxBorder(
 
   // Minimum size check: a full border needs w≥2 and h≥2 for corners.
   // However, horizontal-only borders (no left/right) can render at h=1,
-  // and vertical-only borders (no top/bottom) can render at w=1.
+  // and vertical-only borders (no top/bottom) can render at h=1 — corner
+  // rows are only required when a horizontal edge is present.
   const needsVerticalSpace = left || right;
   const needsHorizontalSpace = top || bottom;
   if (needsHorizontalSpace && rect.w < 1) return;
-  if (needsVerticalSpace && rect.h < 2) return;
+  if (needsVerticalSpace && needsHorizontalSpace && rect.h < 2) return;
+  if (needsVerticalSpace && !needsHorizontalSpace && rect.h < 1) return;
   if (!needsVerticalSpace && needsHorizontalSpace && rect.h < 1) return;
   if (needsVerticalSpace && needsHorizontalSpace && rect.w < 2) return;
 

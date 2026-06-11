@@ -49,7 +49,7 @@ describe("ui.markdown rendered output", () => {
     assert.ok(out.includes("[ ] docs"), "unchecked task");
     assert.ok(out.includes("• nested item"), "nested bullet");
     assert.ok(out.includes("1. first") && out.includes("2. second"), "ordered list");
-    assert.ok(out.includes("╭") && out.includes("Quoted wisdom spanning lines."), "quote box");
+    assert.ok(out.includes("│ Quoted wisdom spanning lines."), "quote left bar");
     assert.ok(out.includes("const x: number = 1; // comment"), "code block content");
     assert.ok(out.includes("┌") && out.includes("└"), "code block frame");
     assert.ok(out.includes("Name │ Count"), "table header");

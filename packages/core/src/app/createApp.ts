@@ -213,6 +213,17 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let pollToken = 0;
   let settleActiveRun: (() => void) | null = null;
   let renderRequestQueuedForCurrentTurn = false;
+  let readySettlers: Array<{ resolve: () => void; reject: (error: unknown) => void }> = [];
+
+  function settleReady(error?: unknown): void {
+    if (readySettlers.length === 0) return;
+    const settlers = readySettlers;
+    readySettlers = [];
+    for (const settler of settlers) {
+      if (error === undefined) settler.resolve();
+      else settler.reject(error);
+    }
+  }
 
   let userCommitScheduled = false;
   let scheduleWaitStartMs: number | null = null;
@@ -828,6 +839,17 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       return debugLayoutEnabled;
     },
 
+    ready(): Promise<void> {
+      const st = sm.state;
+      if (st === "Disposed" || st === "Faulted") {
+        return Promise.reject(new ZrUiError("ZRUI_INVALID_STATE", `ready: app is ${st}`));
+      }
+      if (st === "Running" && lifecycleBusy === null) return Promise.resolve();
+      return new Promise<void>((resolve, reject) => {
+        readySettlers.push({ resolve, reject });
+      });
+    },
+
     start(): Promise<void> {
       guards.assertOperational("start");
       guards.assertNotReentrant("start");
@@ -841,7 +863,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         promise = backend.start();
       } catch (error: unknown) {
         if (lifecycleGeneration === startGeneration) lifecycleBusy = null;
-        guards.throwCode("ZRUI_BACKEND_ERROR", `backend.start threw: ${describeThrown(error)}`);
+        const failure = new ZrUiError(
+          "ZRUI_BACKEND_ERROR",
+          `backend.start threw: ${describeThrown(error)}`,
+        );
+        settleReady(failure);
+        throw failure;
       }
       if (promise === null) throw new Error("start: backend.start did not return a promise");
 
@@ -866,6 +893,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             pollToken++;
             void eventLoop.pollLoop(pollToken);
             enqueueWorkItem({ kind: "kick" });
+            settleReady();
           } finally {
             if (lifecycleGeneration === startGeneration && lifecycleBusy === "start") {
               lifecycleBusy = null;
@@ -875,10 +903,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         (error: unknown) => {
           if (lifecycleGeneration !== startGeneration) return;
           lifecycleBusy = null;
-          throw new ZrUiError(
+          const failure = new ZrUiError(
             "ZRUI_BACKEND_ERROR",
             `backend.start rejected: ${describeThrown(error)}`,
           );
+          settleReady(failure);
+          throw failure;
         },
       );
     },
@@ -995,6 +1025,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       lifecycleBusy = null;
       pollToken++;
       themeTransition = null;
+      settleReady(
+        new ZrUiError("ZRUI_INVALID_STATE", "ready: app disposed before start completed"),
+      );
       try {
         sm.dispose();
       } catch {

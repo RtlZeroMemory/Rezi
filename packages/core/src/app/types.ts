@@ -51,6 +51,12 @@ export interface App<S> {
   update(updater: S | ((prev: Readonly<S>) => S)): void;
   setTheme(theme: ThemeDefinition): void;
   debugLayout(enabled?: boolean): boolean;
+  /**
+   * Resolves once start()/run() has finished starting and the app accepts
+   * update() calls. Resolves immediately when the app is already running;
+   * rejects if startup fails or the app is disposed before starting.
+   */
+  ready(): Promise<void>;
   start(): Promise<void>;
   run(): Promise<void>;
   stop(): Promise<void>;

@@ -133,6 +133,7 @@ export interface App<S> {
     onFocusChange(handler: FocusChangeHandler): () => void;
     // (undocumented)
     readonly pendingChord: string | null;
+    ready(): Promise<void>;
     // (undocumented)
     replaceRoutes(routes: readonly RouteDefinition<S>[]): void;
     // (undocumented)
