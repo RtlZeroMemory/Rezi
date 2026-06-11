@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/testkit",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Test utilities and fixtures for Rezi terminal applications.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
@@ -20,7 +20,13 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist/", "fixtures/", "README.md", "!dist/**/__tests__/**", "!dist/**/__e2e__/**"],
+  "files": [
+    "dist/",
+    "fixtures/",
+    "README.md",
+    "!dist/**/__tests__/**",
+    "!dist/**/__e2e__/**"
+  ],
   "engines": {
     "node": ">=18",
     "bun": ">=1.3.0"

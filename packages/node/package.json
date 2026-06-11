@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/node",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Node.js/Bun backend for running Rezi terminal applications with native engine integration.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
@@ -24,14 +24,19 @@
       "default": "./dist/testing/index.js"
     }
   },
-  "files": ["dist/", "README.md", "!dist/**/__tests__/**", "!dist/**/__e2e__/**"],
+  "files": [
+    "dist/",
+    "README.md",
+    "!dist/**/__tests__/**",
+    "!dist/**/__e2e__/**"
+  ],
   "engines": {
     "node": ">=18",
     "bun": ">=1.3.0"
   },
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-beta.1",
-    "@rezi-ui/native": "0.1.0-beta.1",
+    "@rezi-ui/core": "0.1.0-beta.2",
+    "@rezi-ui/native": "0.1.0-beta.2",
     "@xterm/headless": "^6.0.0",
     "node-pty": "^1.1.0"
   }

@@ -16,6 +16,22 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - **core/renderer**: Per-side box borders now render standalone edges. A box with only `borderLeft` (or any vertical-only side combination) previously drew nothing when shorter than 2 rows; corner rows are now only required when a horizontal edge is present. Markdown blockquotes use this to render a GitHub-style dim left bar instead of a rounded box.
 
+## [0.1.0-beta.2] - 2026-06-11
+
+### Added
+
+- **node/native**: Inline screen mode — render a bounded region on the primary screen with terminal scrollback preserved above it and the final frame left in scrollback on exit (the presentation style of agent CLIs, progress UIs, and REPLs). New `screen: { mode: "alt" | "inline", inlineRows }` option on `createNodeApp`/`createNodeBackend`, validated and applied on both worker and in-process execution paths, with precedence over raw `nativeConfig` passthrough keys. (#416)
+- **core/jsx**: `ui.markdown` widget rendering a GitHub-Flavored Markdown subset, with streaming support. (#415)
+- **examples**: `examples/inline-status` — runnable inline screen mode app (spinner, progress bar, quit keys), verified end-to-end in a real terminal. (#416)
+
+### Changed
+
+- **native/vendor**: Zireael engine updated to v1.4.0 (engine ABI 1.3.0); the requested ABI pin moved to 1.3.0. In inline mode the engine suppresses absolute-row capabilities, so protocol images (kitty/sixel/iTerm2) render through the sub-cell blitter fallback. (#416)
+
+### Documentation
+
+- **guide**: New centralized [Screen Modes](docs/guide/screen-modes.md) guide; Node backend and ABI protocol pages updated; README feature visibility; `screen.mode: "inline"` vs `executionMode: "inline"` naming distinction documented. (#416)
+
 ## [0.1.0-beta.1] - 2026-06-11
 
 ### Changed
