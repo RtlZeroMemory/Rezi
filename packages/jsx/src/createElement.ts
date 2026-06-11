@@ -45,6 +45,7 @@ import {
   LineChart,
   Link,
   LogsConsole,
+  Markdown,
   MasterDetail,
   MiniChart,
   Modal,
@@ -171,6 +172,7 @@ const intrinsicFactories: Readonly<Record<ReziIntrinsicElementName, IntrinsicFac
     diffViewer: asIntrinsic(DiffViewer),
     toolApprovalDialog: asIntrinsic(ToolApprovalDialog),
     logsConsole: asIntrinsic(LogsConsole),
+    markdown: asIntrinsic(Markdown),
     toastContainer: asIntrinsic(ToastContainer),
     fragment: asIntrinsic(Fragment),
   });

@@ -266,6 +266,9 @@ export function createAppWithInspectorOverlay<S>(
     debugLayout(enabled?: boolean): boolean {
       return app.debugLayout(enabled);
     },
+    ready(): Promise<void> {
+      return app.ready();
+    },
     start(): Promise<void> {
       return app.start();
     },

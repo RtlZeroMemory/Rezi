@@ -49,6 +49,7 @@ export type {
   SkeletonProps,
   RichTextSpan,
   RichTextProps,
+  MarkdownProps,
   KbdProps,
   BadgeVariant,
   BadgeProps,

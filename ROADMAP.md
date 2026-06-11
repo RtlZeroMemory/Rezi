@@ -14,7 +14,7 @@ This roadmap is directional only. It is not a commitment to scope, ordering, or 
 
 - Graduate or prune `experimental`-tier widgets so the 1.0 surface is intentional
 - Freeze drawlist and event protocol guarantees together with Zireael
-- Streaming markdown widget and an agent-console template
+- An agent-console template showcasing streamed markdown transcripts
 - Developer tooling: layout, focus, and frame-timing inspection overlay
 - Code coverage reporting and blocking benchmark regression gates in CI
 

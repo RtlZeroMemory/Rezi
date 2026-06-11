@@ -31,6 +31,7 @@ import type {
   LayerProps,
   LayersProps,
   LogsConsoleProps,
+  MarkdownProps,
   MasterDetailOptions,
   MiniChartProps,
   ModalProps,
@@ -255,6 +256,7 @@ export type CodeEditorJsxProps = LeafProps<CodeEditorProps>;
 export type DiffViewerJsxProps = LeafProps<DiffViewerProps>;
 export type ToolApprovalDialogJsxProps = LeafProps<ToolApprovalDialogProps>;
 export type LogsConsoleJsxProps = LeafProps<LogsConsoleProps>;
+export type MarkdownJsxProps = LeafProps<MarkdownProps>;
 export type ToastContainerJsxProps = LeafProps<ToastContainerProps>;
 
 export type TableJsxProps<T = unknown> = LeafProps<TableProps<T>>;
@@ -345,6 +347,7 @@ export interface ReziIntrinsicElements {
   diffViewer: DiffViewerJsxProps;
   toolApprovalDialog: ToolApprovalDialogJsxProps;
   logsConsole: LogsConsoleJsxProps;
+  markdown: MarkdownJsxProps;
   toastContainer: ToastContainerJsxProps;
   fragment: { key?: string; children?: JsxChildren };
 }
