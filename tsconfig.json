@@ -23,6 +23,9 @@
       "path": "./examples/hello-counter"
     },
     {
+      "path": "./examples/inline-status"
+    },
+    {
       "path": "./examples/raw-draw-demo"
     },
     {

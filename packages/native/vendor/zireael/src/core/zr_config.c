@@ -29,7 +29,7 @@ static zr_result_t zr_cfg_validate_plat(const plat_config_t* cfg) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
 
-  if ((cfg->_pad[0] != 0u) || (cfg->_pad[1] != 0u) || (cfg->_pad[2] != 0u)) {
+  if ((cfg->_pad[0] != 0u) || (cfg->_pad[1] != 0u)) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
 
@@ -38,42 +38,49 @@ static zr_result_t zr_cfg_validate_plat(const plat_config_t* cfg) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
 
+  if (cfg->screen_mode != ZR_SCREEN_MODE_ALT && cfg->screen_mode != ZR_SCREEN_MODE_INLINE) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
   return ZR_OK;
 }
 
-/* Validate the shared runtime-config surface used by both engine-create and live reconfiguration. */
-static zr_result_t zr_cfg_validate_runtime_common(const zr_limits_t* lim, const plat_config_t* plat, uint32_t tab_width,
-                                                  uint32_t width_policy, uint32_t target_fps,
-                                                  uint8_t enable_scroll_optimizations, uint8_t enable_debug_overlay,
-                                                  uint8_t enable_replay_recording, uint8_t wait_for_output_drain,
-                                                  zr_terminal_cap_flags_t cap_force_flags,
-                                                  zr_terminal_cap_flags_t cap_suppress_flags) {
+/*
+  Validate the screen-mode/viewport pairing.
 
-  /* --- Validate pointers and caps --- */
-  if (!lim || !plat) {
+  Why: inline_rows is meaningless in ALT mode and required in INLINE mode, so
+  rejecting mismatches keeps wrapper configs unambiguous and deterministic.
+*/
+static zr_result_t zr_cfg_validate_screen_mode(const plat_config_t* plat, uint32_t inline_rows) {
+  if (!plat) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
-
-  zr_result_t rc = zr_limits_validate(lim);
-  if (rc != ZR_OK) {
-    return rc;
+  if (plat->screen_mode == ZR_SCREEN_MODE_ALT) {
+    return (inline_rows == 0u) ? ZR_OK : ZR_ERR_INVALID_ARGUMENT;
   }
-
-  rc = zr_cfg_validate_plat(plat);
-  if (rc != ZR_OK) {
-    return rc;
+  if (inline_rows < 1u || inline_rows > ZR_INLINE_ROWS_MAX) {
+    return ZR_ERR_INVALID_ARGUMENT;
   }
+  return ZR_OK;
+}
 
-  /* --- Validate text policy --- */
+/* Validate text-rendering policy knobs shared by create and runtime configs. */
+static zr_result_t zr_cfg_validate_text_policy(uint32_t tab_width, uint32_t width_policy) {
   if (tab_width == 0u) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
-
   if (width_policy != (uint32_t)ZR_WIDTH_EMOJI_NARROW && width_policy != (uint32_t)ZR_WIDTH_EMOJI_WIDE) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
+  return ZR_OK;
+}
 
-  /* --- Validate boolean toggles --- */
+/* Validate boolean toggles and capability override masks. */
+static zr_result_t zr_cfg_validate_toggles_and_caps(uint32_t target_fps, uint8_t enable_scroll_optimizations,
+                                                    uint8_t enable_debug_overlay, uint8_t enable_replay_recording,
+                                                    uint8_t wait_for_output_drain,
+                                                    zr_terminal_cap_flags_t cap_force_flags,
+                                                    zr_terminal_cap_flags_t cap_suppress_flags) {
   if ((enable_scroll_optimizations > 1u) || (enable_debug_overlay > 1u) || (enable_replay_recording > 1u) ||
       (wait_for_output_drain > 1u)) {
     return ZR_ERR_INVALID_ARGUMENT;
@@ -87,8 +94,39 @@ static zr_result_t zr_cfg_validate_runtime_common(const zr_limits_t* lim, const 
   if ((cap_suppress_flags & ~ZR_TERM_CAP_ALL_MASK) != 0u) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
-
   return ZR_OK;
+}
+
+/* Validate the shared runtime-config surface used by both engine-create and live reconfiguration. */
+static zr_result_t zr_cfg_validate_runtime_common(const zr_limits_t* lim, const plat_config_t* plat, uint32_t tab_width,
+                                                  uint32_t width_policy, uint32_t target_fps,
+                                                  uint8_t enable_scroll_optimizations, uint8_t enable_debug_overlay,
+                                                  uint8_t enable_replay_recording, uint8_t wait_for_output_drain,
+                                                  zr_terminal_cap_flags_t cap_force_flags,
+                                                  zr_terminal_cap_flags_t cap_suppress_flags, uint32_t inline_rows) {
+  if (!lim || !plat) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  zr_result_t rc = zr_limits_validate(lim);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  rc = zr_cfg_validate_plat(plat);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  rc = zr_cfg_validate_screen_mode(plat, inline_rows);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  rc = zr_cfg_validate_text_policy(tab_width, width_policy);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  return zr_cfg_validate_toggles_and_caps(target_fps, enable_scroll_optimizations, enable_debug_overlay,
+                                          enable_replay_recording, wait_for_output_drain, cap_force_flags,
+                                          cap_suppress_flags);
 }
 
 /* Produce the deterministic default engine config used by wrappers. */
@@ -108,9 +146,9 @@ zr_engine_config_t zr_engine_config_default(void) {
   cfg.plat.enable_bracketed_paste = 1u;
   cfg.plat.enable_focus_events = 1u;
   cfg.plat.enable_osc52 = 0u;
+  cfg.plat.screen_mode = ZR_SCREEN_MODE_ALT;
   cfg.plat._pad[0] = 0u;
   cfg.plat._pad[1] = 0u;
-  cfg.plat._pad[2] = 0u;
 
   cfg.tab_width = ZR_CFG_DEFAULT_TAB_WIDTH;
   cfg.width_policy = (uint32_t)zr_width_policy_default();
@@ -122,6 +160,7 @@ zr_engine_config_t zr_engine_config_default(void) {
   cfg.wait_for_output_drain = 0u;
   cfg.cap_force_flags = 0u;
   cfg.cap_suppress_flags = 0u;
+  cfg.inline_rows = 0u;
 
   return cfg;
 }
@@ -151,7 +190,7 @@ zr_result_t zr_engine_config_validate(const zr_engine_config_t* cfg) {
   return zr_cfg_validate_runtime_common(&cfg->limits, &cfg->plat, cfg->tab_width, cfg->width_policy, cfg->target_fps,
                                         cfg->enable_scroll_optimizations, cfg->enable_debug_overlay,
                                         cfg->enable_replay_recording, cfg->wait_for_output_drain, cfg->cap_force_flags,
-                                        cfg->cap_suppress_flags);
+                                        cfg->cap_suppress_flags, cfg->inline_rows);
 }
 
 /* Validate the runtime-only config surface for engine_set_config(). */
@@ -163,5 +202,5 @@ zr_result_t zr_engine_runtime_config_validate(const zr_engine_runtime_config_t* 
   return zr_cfg_validate_runtime_common(&cfg->limits, &cfg->plat, cfg->tab_width, cfg->width_policy, cfg->target_fps,
                                         cfg->enable_scroll_optimizations, cfg->enable_debug_overlay,
                                         cfg->enable_replay_recording, cfg->wait_for_output_drain, cfg->cap_force_flags,
-                                        cfg->cap_suppress_flags);
+                                        cfg->cap_suppress_flags, cfg->inline_rows);
 }

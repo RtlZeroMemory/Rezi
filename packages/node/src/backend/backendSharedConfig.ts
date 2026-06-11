@@ -59,6 +59,62 @@ export function normalizeBackendNativeConfig(
     : mergeNativeLimits(EMPTY_NATIVE_CONFIG);
 }
 
+/** Maximum inline viewport height accepted by the engine (zr_config.h). */
+export const INLINE_ROWS_MAX = 1024 as const;
+
+/** Native wire values for plat.screenMode (zr_platform_types.h). */
+export const NATIVE_SCREEN_MODE_ALT = 0 as const;
+export const NATIVE_SCREEN_MODE_INLINE = 1 as const;
+
+export type BackendScreenConfig = Readonly<{
+  mode?: "alt" | "inline";
+  inlineRows?: number;
+}>;
+
+/**
+ * Fold the high-level `screen` backend option into the native engine config.
+ *
+ * The explicit `screen` option wins over raw `nativeConfig` passthrough keys
+ * (`plat.screenMode` / `inlineRows`) while preserving unrelated plat keys.
+ * When `screen` is omitted the native config is returned untouched, so
+ * existing alt-screen behavior is byte-for-byte unchanged.
+ */
+export function mergeScreenIntoNativeConfig(
+  nativeConfig: Readonly<Record<string, unknown>>,
+  screen: BackendScreenConfig | undefined,
+): Readonly<Record<string, unknown>> {
+  if (screen === undefined) return nativeConfig;
+
+  const mode = screen.mode ?? "alt";
+  if (mode !== "alt" && mode !== "inline") {
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `screen.mode must be "alt" or "inline" (got ${JSON.stringify(mode)})`,
+    );
+  }
+  if (mode === "inline") {
+    const rows = screen.inlineRows;
+    if (typeof rows !== "number" || !Number.isInteger(rows) || rows < 1 || rows > INLINE_ROWS_MAX) {
+      throw new ZrUiError(
+        "ZRUI_INVALID_PROPS",
+        `screen.inlineRows must be an integer in [1, ${String(INLINE_ROWS_MAX)}] when screen.mode is "inline"`,
+      );
+    }
+  } else if (screen.inlineRows !== undefined) {
+    throw new ZrUiError("ZRUI_INVALID_PROPS", 'screen.inlineRows requires screen.mode "inline"');
+  }
+
+  // biome-ignore lint/complexity/useLiteralKeys: bracket access is required by noPropertyAccessFromIndexSignature.
+  const platValue = nativeConfig["plat"];
+  const basePlat = isPlainObject(platValue) ? platValue : {};
+  const screenMode = mode === "inline" ? NATIVE_SCREEN_MODE_INLINE : NATIVE_SCREEN_MODE_ALT;
+  return Object.freeze({
+    ...nativeConfig,
+    plat: Object.freeze({ ...basePlat, screenMode }),
+    inlineRows: mode === "inline" ? (screen.inlineRows as number) : 0,
+  });
+}
+
 export function parsePositiveIntOr(n: unknown, fallback: number): number {
   if (typeof n !== "number") return fallback;
   if (!Number.isFinite(n)) return fallback;

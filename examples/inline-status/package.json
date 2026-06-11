@@ -1,0 +1,9 @@
+{
+  "name": "inline-status",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@rezi-ui/core": "0.1.0-beta.1",
+    "@rezi-ui/node": "0.1.0-beta.1"
+  }
+}

@@ -8,13 +8,17 @@ engine pins.
 | Constant | Value | Notes |
 |---|---:|---|
 | `ZR_ENGINE_ABI_MAJOR` | `1` | Engine ABI major |
-| `ZR_ENGINE_ABI_MINOR` | `2` | Engine ABI minor |
+| `ZR_ENGINE_ABI_MINOR` | `3` | Engine ABI minor |
 | `ZR_ENGINE_ABI_PATCH` | `0` | Engine ABI patch |
 | `ZR_DRAWLIST_VERSION_V1` | `1` | ZRDL v1 |
 | `ZR_EVENT_BATCH_VERSION_V1` | `1` | ZREV v1 |
 | `ZR_UNICODE_VERSION_MAJOR` | `15` | Unicode major |
 | `ZR_UNICODE_VERSION_MINOR` | `1` | Unicode minor |
 | `ZR_UNICODE_VERSION_PATCH` | `0` | Unicode patch |
+
+Engine ABI `1.3.0` (Zireael v1.4.0) added inline screen mode: the
+`plat.screenMode` selector and the `inlineRows` field on the engine create
+and runtime configs. See [Screen Modes](../guide/screen-modes.md).
 
 ## Magic Values
 

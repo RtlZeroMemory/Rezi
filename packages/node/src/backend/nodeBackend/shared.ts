@@ -1,5 +1,29 @@
 import type { DebugBackend, RuntimeBackend } from "@rezi-ui/core";
 
+export type NodeBackendScreenConfig = Readonly<{
+  /**
+   * Terminal presentation mode:
+   * - "alt" (default): full-screen rendering on the alternate screen buffer;
+   *   the prior screen is restored on exit.
+   * - "inline": render a bounded region of `inlineRows` rows on the primary
+   *   screen at the current scroll position. Terminal scrollback stays
+   *   visible above the region, the app's output scrolls naturally with the
+   *   session, and the final frame remains in scrollback on exit with the
+   *   shell prompt restored below it. Fits status UIs, progress displays,
+   *   REPLs, and agent-style CLIs.
+   *
+   * In inline mode the app's layout viewport is `inlineRows` tall (clamped
+   * to the live terminal height) and resize events report that viewport.
+   * Protocol images (kitty/sixel/iTerm2) fall back to sub-cell rendering.
+   */
+  mode?: "alt" | "inline";
+  /**
+   * Inline viewport height in rows (1..1024). Required when `mode` is
+   * "inline"; rejected otherwise.
+   */
+  inlineRows?: number;
+}>;
+
 export type NodeBackendConfig = Readonly<{
   /**
    * Runtime execution mode:
@@ -31,8 +55,16 @@ export type NodeBackendConfig = Readonly<{
   /** SAB mailbox bytes per slot (default: 1 MiB). */
   frameSabSlotBytes?: number;
   /**
+   * Screen presentation mode (alt-screen vs inline). Unrelated to
+   * `executionMode: "inline"`, which selects in-process engine ownership;
+   * the two options compose freely.
+   */
+  screen?: NodeBackendScreenConfig;
+  /**
    * Extra native `engine_create` configuration passed through to the addon (e.g. `limits`).
    * Keys are forwarded as-is (camelCase or snake_case accepted by the native parser).
+   * The high-level `screen` option takes precedence over `plat.screenMode` /
+   * `inlineRows` keys supplied here.
    */
   nativeConfig?: Readonly<Record<string, unknown>>;
   /**

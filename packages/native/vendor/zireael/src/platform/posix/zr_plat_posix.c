@@ -1163,9 +1163,15 @@ static zr_result_t zr_posix_write_cstr(int fd, const char* s) {
 static void zr_posix_emit_enter_sequences(plat_t* plat) {
   /*
     Locked ordering for enter:
-      ?1049h, ?25l, ?7h, ?2004h, ?1004h, ?1000h?1002h?1003h?1006h (when enabled by config/caps)
+      ?1049h (ALT mode only), ?25l, ?7h, ?2004h, ?1004h, ?1000h?1002h?1003h?1006h
+      (when enabled by config/caps)
+
+    Why inline skips ?1049h: inline mode renders on the primary screen so the
+    session's scrollback stays visible above the region.
   */
-  (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1049h");
+  if (plat->cfg.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1049h");
+  }
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?25l");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?7h");
 
@@ -1206,11 +1212,20 @@ static void zr_posix_emit_leave_sequences(plat_t* plat) {
     (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?2004l");
   }
 
-  (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[r");
+  /*
+    Inline mode must not reset scroll margins or leave the alt screen:
+    "\x1b[r" homes the cursor (the engine just parked it below the region)
+    and "\x1b[?1049l" would switch buffers the engine never entered.
+  */
+  if (plat->cfg.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[r");
+  }
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[0m");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?7h");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?25h");
-  (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1049l");
+  if (plat->cfg.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1049l");
+  }
 }
 
 static void zr_posix_set_caps_from_cfg(plat_t* plat, const plat_config_t* cfg) {

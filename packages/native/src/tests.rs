@@ -196,6 +196,9 @@ fn render_diff_bytes(
         cursor_shape: 0,
         cursor_blink: 0,
         flags: 0,
+        screen_mode: ffi::ZR_SCREEN_MODE_ALT,
+        _pad0: [0, 0, 0],
+        inline_rows_claimed: 0,
         style: initial_style,
     };
     let desired_cursor_state = ffi::zr_cursor_state_t {
@@ -429,8 +432,26 @@ fn ffi_layout_matches_vendored_headers() {
     assert_eq!(size_of::<ffi::zr_style_t>(), 24);
     assert_eq!(align_of::<ffi::zr_style_t>(), 4);
     assert_eq!(size_of::<ffi::zr_cell_t>(), 60);
-    assert_eq!(size_of::<ffi::zr_term_state_t>(), 36);
+    assert_eq!(size_of::<ffi::zr_term_state_t>(), 44);
     assert_eq!(size_of::<ffi::plat_caps_t>(), 16);
+    assert_eq!(size_of::<ffi::plat_config_t>(), 8);
+    {
+        let plat = std::mem::MaybeUninit::<ffi::plat_config_t>::uninit();
+        let base = plat.as_ptr();
+        unsafe {
+            assert_eq!(addr_of!((*base).screen_mode) as usize - base as usize, 5);
+        }
+    }
+    {
+        let cfg = std::mem::MaybeUninit::<ffi::zr_engine_config_t>::uninit();
+        let base = cfg.as_ptr();
+        unsafe {
+            assert_eq!(
+                addr_of!((*base).inline_rows) as usize - base as usize,
+                size_of::<ffi::zr_engine_config_t>() - 4
+            );
+        }
+    }
     assert_eq!(align_of::<ffi::plat_caps_t>(), 4);
 
     let caps = std::mem::MaybeUninit::<ffi::plat_caps_t>::uninit();

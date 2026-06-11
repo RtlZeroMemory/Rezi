@@ -23,6 +23,7 @@ const PLAT_KEYS: &[(&str, &str)] = &[
     ("enableBracketedPaste", "enable_bracketed_paste"),
     ("enableFocusEvents", "enable_focus_events"),
     ("enableOsc52", "enable_osc52"),
+    ("screenMode", "screen_mode"),
 ];
 
 const CREATE_CFG_KEYS: &[(&str, &str)] = &[
@@ -45,6 +46,7 @@ const CREATE_CFG_KEYS: &[(&str, &str)] = &[
     ("waitForOutputDrain", "wait_for_output_drain"),
     ("capForceFlags", "cap_force_flags"),
     ("capSuppressFlags", "cap_suppress_flags"),
+    ("inlineRows", "inline_rows"),
 ];
 
 const RUNTIME_CFG_KEYS: &[(&str, &str)] = &[
@@ -59,6 +61,7 @@ const RUNTIME_CFG_KEYS: &[(&str, &str)] = &[
     ("waitForOutputDrain", "wait_for_output_drain"),
     ("capForceFlags", "cap_force_flags"),
     ("capSuppressFlags", "cap_suppress_flags"),
+    ("inlineRows", "inline_rows"),
 ];
 
 pub(crate) fn validate_known_keys(
@@ -259,7 +262,10 @@ fn apply_plat(dst: &mut ffi::plat_config_t, obj: &JsObject) -> ParseResult<()> {
     if let Some(v) = js_u8_bool(obj, "enableOsc52", "enable_osc52")? {
         dst.enable_osc52 = v;
     }
-    dst._pad = [0, 0, 0];
+    if let Some(v) = js_u32(obj, "screenMode", "screen_mode")? {
+        dst.screen_mode = checked_u8(v)?;
+    }
+    dst._pad = [0, 0];
     Ok(())
 }
 
@@ -324,6 +330,9 @@ fn apply_create_cfg(dst: &mut ffi::zr_engine_config_t, obj: &JsObject) -> ParseR
     if let Some(v) = js_u32(obj, "capSuppressFlags", "cap_suppress_flags")? {
         dst.cap_suppress_flags = v;
     }
+    if let Some(v) = js_u32(obj, "inlineRows", "inline_rows")? {
+        dst.inline_rows = v;
+    }
     Ok(())
 }
 
@@ -341,6 +350,7 @@ pub(crate) fn create_default_runtime_cfg() -> ffi::zr_engine_runtime_config_t {
         wait_for_output_drain: base.wait_for_output_drain,
         cap_force_flags: base.cap_force_flags,
         cap_suppress_flags: base.cap_suppress_flags,
+        inline_rows: base.inline_rows,
     }
 }
 
@@ -381,6 +391,9 @@ fn apply_runtime_cfg(dst: &mut ffi::zr_engine_runtime_config_t, obj: &JsObject) 
     }
     if let Some(v) = js_u32(obj, "capSuppressFlags", "cap_suppress_flags")? {
         dst.cap_suppress_flags = v;
+    }
+    if let Some(v) = js_u32(obj, "inlineRows", "inline_rows")? {
+        dst.inline_rows = v;
     }
     Ok(())
 }

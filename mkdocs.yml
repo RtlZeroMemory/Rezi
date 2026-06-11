@@ -113,6 +113,7 @@ nav:
       - Animation: guide/animation.md
       - Runtime & Layout: guide/runtime-and-layout.md
       - Lifecycle & Updates: guide/lifecycle-and-updates.md
+      - Screen Modes: guide/screen-modes.md
       - Error Handling: guide/error-handling.md
       - Routing: guide/routing.md
       - Layout: guide/layout.md

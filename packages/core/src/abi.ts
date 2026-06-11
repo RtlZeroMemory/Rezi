@@ -13,7 +13,7 @@
  * These must match the C engine's zr_version.h exactly.
  */
 export const ZR_ENGINE_ABI_MAJOR = 1;
-export const ZR_ENGINE_ABI_MINOR = 2;
+export const ZR_ENGINE_ABI_MINOR = 3;
 export const ZR_ENGINE_ABI_PATCH = 0;
 
 /**

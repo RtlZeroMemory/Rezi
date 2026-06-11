@@ -97,27 +97,6 @@ static zr_result_t zr_engine_present_append_images(zr_engine_t* e, size_t* inout
   return ZR_OK;
 }
 
-static size_t zr_engine_present_u32_dec_len(uint32_t v) {
-  size_t len = 1u;
-  while (v >= 10u) {
-    v /= 10u;
-    len++;
-  }
-  return len;
-}
-
-static void zr_engine_present_write_u32_dec(uint8_t* dst, size_t len, uint32_t v) {
-  if (!dst || len == 0u) {
-    return;
-  }
-  size_t i = len;
-  while (i != 0u) {
-    i--;
-    dst[i] = (uint8_t)((uint32_t)'0' + (v % 10u));
-    v /= 10u;
-  }
-}
-
 /*
   Re-anchor cursor after image sideband emission.
 
@@ -145,6 +124,13 @@ static zr_result_t zr_engine_present_append_cursor_restore(zr_engine_t* e, size_
   if (*inout_out_len > e->out_cap) {
     return ZR_ERR_LIMIT;
   }
+  /*
+    Inline mode never stages protocol images (capabilities are suppressed),
+    and absolute CUP would corrupt relative positioning if it ever ran.
+  */
+  if (zr_engine_is_inline_mode(e)) {
+    return ZR_OK;
+  }
   if ((final_ts->flags & ZR_TERM_STATE_CURSOR_POS_VALID) == 0u) {
     return ZR_OK;
   }
@@ -154,8 +140,8 @@ static zr_result_t zr_engine_present_append_cursor_restore(zr_engine_t* e, size_
     return ZR_ERR_LIMIT;
   }
 
-  row_digits = zr_engine_present_u32_dec_len(row_1based);
-  col_digits = zr_engine_present_u32_dec_len(col_1based);
+  row_digits = zr_engine_u32_dec_len(row_1based);
+  col_digits = zr_engine_u32_dec_len(col_1based);
   if (!zr_checked_add_size(row_digits, col_digits, &cup_len) ||
       !zr_checked_add_size(cup_len, (size_t)ZR_CUP_FIXED_BYTES, &cup_len) ||
       !zr_checked_add_size(*inout_out_len, cup_len, &next_len) || next_len > e->out_cap) {
@@ -165,10 +151,10 @@ static zr_result_t zr_engine_present_append_cursor_restore(zr_engine_t* e, size_
   at = *inout_out_len;
   e->out_buf[at++] = (uint8_t)0x1Bu;
   e->out_buf[at++] = (uint8_t)'[';
-  zr_engine_present_write_u32_dec(e->out_buf + at, row_digits, row_1based);
+  zr_engine_write_u32_dec(e->out_buf + at, row_digits, row_1based);
   at += row_digits;
   e->out_buf[at++] = (uint8_t)';';
-  zr_engine_present_write_u32_dec(e->out_buf + at, col_digits, col_1based);
+  zr_engine_write_u32_dec(e->out_buf + at, col_digits, col_1based);
   at += col_digits;
   e->out_buf[at++] = (uint8_t)'H';
 

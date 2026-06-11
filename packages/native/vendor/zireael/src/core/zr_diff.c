@@ -95,6 +95,13 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 #define ZR_ASCII_BEL 0x07u
 #define ZR_ASCII_ST_FINAL ((uint8_t)'\\')
 #define ZR_ASCII_DEL 0x7Fu
+#define ZR_ASCII_CR 0x0Du
+#define ZR_ASCII_LF 0x0Au
+
+/* CSI final bytes for inline-mode relative cursor motion. */
+#define ZR_CSI_FINAL_CUU ((uint8_t)'A')
+#define ZR_CSI_FINAL_CUD ((uint8_t)'B')
+#define ZR_CSI_FINAL_CHA ((uint8_t)'G')
 
 /*
   VT CSI introducer (ESC '[').
@@ -693,6 +700,140 @@ static bool zr_emit_cup(zr_sb_t* sb, zr_term_state_t* ts, uint32_t x, uint32_t y
   return true;
 }
 
+/* Emit CSI <n> <final> with the parameter omitted for the default n==1. */
+static bool zr_emit_csi_count(zr_sb_t* sb, uint32_t n, uint8_t final) {
+  if (n == 0u) {
+    return true;
+  }
+  if (!zr_diff_write_csi(sb)) {
+    return false;
+  }
+  if (n != 1u && !zr_sb_write_u32_dec(sb, n)) {
+    return false;
+  }
+  return zr_sb_write_u8(sb, final);
+}
+
+/* Forward declaration: claims must reset SGR before scrolling (BCE fill). */
+static bool zr_emit_sgr_absolute(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t desired, const plat_caps_t* caps);
+static zr_style_t zr_diff_baseline_style(void);
+
+/*
+  Move vertically within already-claimed viewport rows, or claim new rows.
+
+  Why: CUD silently clamps at the physical screen bottom, while LF scrolls
+  there. Rows at or beyond the claimed extent are therefore materialized with
+  LF: when that scrolls the screen, the whole region (including its top row)
+  shifts up as one unit, so viewport-relative coordinates stay self-consistent
+  without any absolute anchor.
+*/
+static bool zr_emit_inline_vertical(zr_sb_t* sb, zr_term_state_t* ts, const plat_caps_t* caps, uint32_t target_y) {
+  uint32_t claimed = (ts->inline_rows_claimed != 0u) ? ts->inline_rows_claimed : 1u;
+  uint32_t row = ts->cursor_y;
+  if (row >= claimed) {
+    row = claimed - 1u;
+  }
+
+  if (target_y < row) {
+    if (!zr_emit_csi_count(sb, row - target_y, ZR_CSI_FINAL_CUU)) {
+      return false;
+    }
+  } else if (target_y > row) {
+    const uint32_t reachable_y = (target_y < claimed) ? target_y : (claimed - 1u);
+    if (reachable_y > row && !zr_emit_csi_count(sb, reachable_y - row, ZR_CSI_FINAL_CUD)) {
+      return false;
+    }
+    if (target_y >= claimed) {
+      /*
+        Reset SGR to the blank baseline before claiming rows.
+
+        Why: An LF that scrolls fills the incoming line with the *current*
+        background (BCE). The diff model assumes never-painted cells hold the
+        baseline style, so the fill must match it.
+      */
+      if (!zr_emit_sgr_absolute(sb, ts, zr_diff_baseline_style(), caps)) {
+        return false;
+      }
+      /* CR before LF claims: LF preserves the column in raw mode. */
+      if (!zr_sb_write_u8(sb, ZR_ASCII_CR)) {
+        return false;
+      }
+      ts->cursor_x = 0u;
+      for (uint32_t claim_y = claimed; claim_y <= target_y; claim_y++) {
+        if (!zr_sb_write_u8(sb, ZR_ASCII_LF)) {
+          return false;
+        }
+      }
+      claimed = target_y + 1u;
+    }
+  }
+
+  ts->cursor_y = target_y;
+  ts->inline_rows_claimed = claimed;
+  return true;
+}
+
+/* Move horizontally with CR (column 0) or absolute-column CHA. */
+static bool zr_emit_inline_horizontal(zr_sb_t* sb, zr_term_state_t* ts, uint32_t target_x) {
+  if (ts->cursor_x == target_x) {
+    return true;
+  }
+  if (target_x == 0u) {
+    if (!zr_sb_write_u8(sb, ZR_ASCII_CR)) {
+      return false;
+    }
+  } else if (!zr_diff_write_csi(sb) || !zr_sb_write_u32_dec(sb, target_x + 1u) ||
+             !zr_sb_write_u8(sb, ZR_CSI_FINAL_CHA)) {
+    return false;
+  }
+  ts->cursor_x = target_x;
+  return true;
+}
+
+/*
+  Inline-mode cursor positioning without absolute rows.
+
+  Why: The primary-screen scroll offset is unknown (no CPR queries by design),
+  so vertical motion is always relative to the tracked viewport-relative
+  cursor. When the tracked position is invalid (e.g. glyph width-model drift),
+  CR re-anchors the column and the last assumed row is kept: residual vertical
+  drift is bounded to deferred-autowrap edge cases and is repaired by later
+  row repaints.
+*/
+static bool zr_emit_move_inline(zr_sb_t* sb, zr_term_state_t* ts, const plat_caps_t* caps, uint32_t x, uint32_t y) {
+  const bool pos_known = zr_term_cursor_pos_is_valid(ts);
+  if (pos_known && ts->cursor_x == x && ts->cursor_y == y) {
+    return true;
+  }
+
+  if (!pos_known) {
+    /* CR cancels pending autowrap and re-establishes a known column. */
+    if (!zr_sb_write_u8(sb, ZR_ASCII_CR)) {
+      return false;
+    }
+    ts->cursor_x = 0u;
+  }
+  if (!zr_emit_inline_vertical(sb, ts, caps, y)) {
+    return false;
+  }
+  if (!zr_emit_inline_horizontal(sb, ts, x)) {
+    return false;
+  }
+  ts->flags |= ZR_TERM_STATE_CURSOR_POS_VALID;
+  return true;
+}
+
+/* Route cursor positioning through the mode-appropriate emission strategy. */
+static bool zr_emit_move_to(zr_sb_t* sb, zr_term_state_t* ts, const plat_caps_t* caps, uint32_t x, uint32_t y) {
+  if (!sb || !ts) {
+    return false;
+  }
+  if (ts->screen_mode == ZR_SCREEN_MODE_INLINE) {
+    return zr_emit_move_inline(sb, ts, caps, x, y);
+  }
+  return zr_emit_cup(sb, ts, x, y);
+}
+
 static bool zr_emit_cursor_visibility(zr_sb_t* sb, zr_term_state_t* ts, uint8_t visible) {
   if (!sb || !ts) {
     return false;
@@ -802,7 +943,7 @@ static bool zr_emit_cursor_desired(zr_sb_t* sb, zr_term_state_t* ts, const zr_cu
     }
     const uint32_t x = (ts->cursor_x < next->cols) ? ts->cursor_x : (next->cols - 1u);
     const uint32_t y = (ts->cursor_y < next->rows) ? ts->cursor_y : (next->rows - 1u);
-    return zr_emit_cup(sb, ts, x, y);
+    return zr_emit_move_to(sb, ts, caps, x, y);
   }
 
   uint32_t x = (ts->cursor_x < next->cols) ? ts->cursor_x : (next->cols - 1u);
@@ -814,7 +955,7 @@ static bool zr_emit_cursor_desired(zr_sb_t* sb, zr_term_state_t* ts, const zr_cu
     y = zr_clamp_u32_from_i32(desired->y, 0u, next->rows - 1u);
   }
 
-  return zr_emit_cup(sb, ts, x, y);
+  return zr_emit_move_to(sb, ts, caps, x, y);
 }
 
 /*
@@ -1164,6 +1305,10 @@ static zr_result_t zr_diff_validate_args(const zr_fb_t* prev, const zr_fb_t* nex
       !out_stats) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
+  if (initial_term_state->screen_mode != ZR_SCREEN_MODE_ALT &&
+      initial_term_state->screen_mode != ZR_SCREEN_MODE_INLINE) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
   if (prev->cols != next->cols || prev->rows != next->rows) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
@@ -1498,6 +1643,57 @@ static bool zr_emit_ed2_clear_screen(zr_sb_t* sb) {
   return zr_sb_write_bytes(sb, seq, sizeof(seq) - 1u);
 }
 
+/* Erase from the cursor to the end of the display (ED default mode 0). */
+static bool zr_emit_ed0_clear_below(zr_sb_t* sb) {
+  if (!sb) {
+    return false;
+  }
+  const uint8_t seq[] = "\x1b[J";
+  return zr_sb_write_bytes(sb, seq, sizeof(seq) - 1u);
+}
+
+/*
+  Establish the inline-mode blank baseline without touching scrollback.
+
+  Why: ESC[2J and DECSTBM operate on absolute screen coordinates and would
+  clear or scroll-jump the user's primary screen. The inline baseline instead
+  re-anchors at the region top with relative motion and erases downward only
+  (CSI J), leaving everything above the region untouched.
+*/
+static zr_result_t zr_diff_establish_inline_baseline(zr_diff_ctx_t* ctx) {
+  zr_term_state_t* ts = &ctx->ts;
+
+  /* First frame: adopt the current line as region row 0 (column unknown). */
+  if (ts->inline_rows_claimed == 0u) {
+    ts->cursor_y = 0u;
+    ts->inline_rows_claimed = 1u;
+    ts->flags &= (uint8_t)~ZR_TERM_STATE_CURSOR_POS_VALID;
+  }
+
+  ts->flags &= (uint8_t)~ZR_TERM_STATE_STYLE_VALID;
+  if (!zr_emit_move_inline(&ctx->sb, ts, ctx->caps, 0u, 0u)) {
+    return ZR_ERR_LIMIT;
+  }
+
+  const zr_style_t baseline = zr_diff_baseline_style();
+  if (!zr_emit_sgr_absolute(&ctx->sb, ts, baseline, ctx->caps)) {
+    return ZR_ERR_LIMIT;
+  }
+  if (!zr_emit_ed0_clear_below(&ctx->sb)) {
+    return ZR_ERR_LIMIT;
+  }
+
+  /*
+    Rows below the cursor are blank now, but their physical placement is no
+    longer trusted (terminal reflow may have moved the region). Resetting the
+    claimed extent makes repaints re-materialize rows with LF, which is safe
+    wherever the region currently sits on screen.
+  */
+  ts->inline_rows_claimed = 1u;
+  ts->flags |= ZR_TERM_STATE_SCREEN_VALID;
+  return zr_sb_truncated(&ctx->sb) ? ZR_ERR_LIMIT : ZR_OK;
+}
+
 /*
  * Establish a known blank baseline when screen contents are not trusted.
  *
@@ -1508,6 +1704,10 @@ static bool zr_emit_ed2_clear_screen(zr_sb_t* sb) {
 static zr_result_t zr_diff_establish_blank_screen_baseline(zr_diff_ctx_t* ctx) {
   if (!ctx) {
     return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  if (ctx->ts.screen_mode == ZR_SCREEN_MODE_INLINE) {
+    return zr_diff_establish_inline_baseline(ctx);
   }
 
   ctx->ts.flags &= (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID);
@@ -1534,7 +1734,7 @@ static zr_result_t zr_diff_render_span(zr_diff_ctx_t* ctx, uint32_t y, uint32_t 
   if (!ctx || !ctx->prev || !ctx->next) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
-  if (!zr_emit_cup(&ctx->sb, &ctx->ts, start, y)) {
+  if (!zr_emit_move_to(&ctx->sb, &ctx->ts, ctx->caps, start, y)) {
     return ZR_ERR_LIMIT;
   }
 
@@ -1548,8 +1748,8 @@ static zr_result_t zr_diff_render_span(zr_diff_ctx_t* ctx, uint32_t y, uint32_t 
       continue;
     }
 
-    /* If the cursor drifted (e.g. due to skipped continuations), use CUP only. */
-    if (!zr_emit_cup(&ctx->sb, &ctx->ts, xx, y)) {
+    /* If the cursor drifted (e.g. due to skipped continuations), re-anchor only. */
+    if (!zr_emit_move_to(&ctx->sb, &ctx->ts, ctx->caps, xx, y)) {
       return ZR_ERR_LIMIT;
     }
     const zr_result_t link_rc = zr_diff_emit_link_transition(ctx, c->style.link_ref);
@@ -2264,7 +2464,9 @@ zr_result_t zr_diff_render_ex(const zr_fb_t* prev, const zr_fb_t* next, const pl
   bool skip = false;
   uint32_t skip_top = 0u;
   uint32_t skip_bottom = 0u;
-  if (!force_full_redraw && enable_scroll_optimizations != 0u && caps->supports_scroll_region != 0u) {
+  /* Scroll-region moves use absolute rows (DECSTBM); never valid inline. */
+  if (!force_full_redraw && enable_scroll_optimizations != 0u && caps->supports_scroll_region != 0u &&
+      ctx.ts.screen_mode != ZR_SCREEN_MODE_INLINE) {
     const zr_result_t rc = zr_diff_try_scroll_opt(&ctx, &skip, &skip_top, &skip_bottom);
     if (rc != ZR_OK) {
       zr_diff_zero_outputs(out_len, out_final_term_state, out_stats);

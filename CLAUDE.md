@@ -20,6 +20,7 @@ Current public templates:
 
 Repository examples:
 - `examples/hello-counter`
+- `examples/inline-status` (inline screen mode: scrollback-preserving region)
 - `examples/raw-draw-demo`
 - `examples/gallery`
 - `examples/regression-dashboard` (validation surface for layout/render/input regressions)
@@ -158,6 +159,7 @@ Practical defaults:
 - Do not hand-edit generated drawlist writers.
 - Prefer semantic widgets and recipe-driven styling over manual status rendering.
 - Prefer `ui.virtualList` for large collections.
+- Screen modes: `config.screen = { mode: "alt" | "inline", inlineRows }` selects alt-screen vs inline presentation (docs/guide/screen-modes.md). Distinct from `executionMode: "inline"` (engine-on-main-thread).
 
 ## Skills
 
