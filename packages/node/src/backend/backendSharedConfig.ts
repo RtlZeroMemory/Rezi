@@ -101,10 +101,7 @@ export function mergeScreenIntoNativeConfig(
       );
     }
   } else if (screen.inlineRows !== undefined) {
-    throw new ZrUiError(
-      "ZRUI_INVALID_PROPS",
-      'screen.inlineRows requires screen.mode "inline"',
-    );
+    throw new ZrUiError("ZRUI_INVALID_PROPS", 'screen.inlineRows requires screen.mode "inline"');
   }
 
   // biome-ignore lint/complexity/useLiteralKeys: bracket access is required by noPropertyAccessFromIndexSignature.

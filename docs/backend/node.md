@@ -65,6 +65,28 @@ if (app.isNoColor) {
 }
 ```
 
+Screen mode (alt vs inline):
+
+- `screen.mode` selects the terminal presentation: `"alt"` (default,
+  full-screen on the alternate buffer) or `"inline"` (a bounded region of
+  `screen.inlineRows` rows on the primary screen with scrollback preserved
+  above and the final frame left in scrollback on exit).
+- `screen.inlineRows` (1..1024) is required with `"inline"` and rejected
+  otherwise; the effective viewport is clamped to the live terminal height.
+- Unrelated to `executionMode: "inline"` (engine-on-main-thread); the two
+  options compose freely.
+- See the [Screen Modes guide](../guide/screen-modes.md) and
+  `examples/inline-status` for a runnable app.
+
+```ts
+const app = createNodeApp({
+  initialState: {},
+  config: {
+    screen: { mode: "inline", inlineRows: 9 },
+  },
+});
+```
+
 Emoji width policy:
 
 - `emojiWidthPolicy` keeps core text measurement and native rendering aligned.

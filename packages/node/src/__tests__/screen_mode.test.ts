@@ -10,11 +10,14 @@ import {
 } from "../backend/backendSharedConfig.js";
 import { createNodeBackendInternal } from "../backend/nodeBackend.js";
 
-function plat(cfg: Readonly<Record<string, unknown>>): Record<string, unknown> {
-  // biome-ignore lint/complexity/useLiteralKeys: index-signature access.
-  const value = cfg["plat"];
+function cfgKey(cfg: Readonly<Record<string, unknown>>, key: string): unknown {
+  return cfg[key];
+}
+
+function platKey(cfg: Readonly<Record<string, unknown>>, key: string): unknown {
+  const value = cfgKey(cfg, "plat");
   assert.ok(typeof value === "object" && value !== null);
-  return value as Record<string, unknown>;
+  return (value as Record<string, unknown>)[key];
 }
 
 test("screen: omitted screen option leaves native config untouched", () => {
@@ -29,18 +32,16 @@ test("screen: inline mode maps to native wire keys", () => {
     mode: "inline",
     inlineRows: 8,
   });
-  assert.equal(plat(merged)["screenMode"], NATIVE_SCREEN_MODE_INLINE);
-  // biome-ignore lint/complexity/useLiteralKeys: index-signature access.
-  assert.equal(merged["inlineRows"], 8);
+  assert.equal(platKey(merged, "screenMode"), NATIVE_SCREEN_MODE_INLINE);
+  assert.equal(cfgKey(merged, "inlineRows"), 8);
 });
 
 test("screen: explicit alt mode maps to wire defaults", () => {
   const merged = mergeScreenIntoNativeConfig(normalizeBackendNativeConfig(undefined), {
     mode: "alt",
   });
-  assert.equal(plat(merged)["screenMode"], NATIVE_SCREEN_MODE_ALT);
-  // biome-ignore lint/complexity/useLiteralKeys: index-signature access.
-  assert.equal(merged["inlineRows"], 0);
+  assert.equal(platKey(merged, "screenMode"), NATIVE_SCREEN_MODE_ALT);
+  assert.equal(cfgKey(merged, "inlineRows"), 0);
 });
 
 test("screen: merge preserves unrelated plat keys and wins over passthrough", () => {
@@ -51,10 +52,9 @@ test("screen: merge preserves unrelated plat keys and wins over passthrough", ()
     }),
     { mode: "inline", inlineRows: 4 },
   );
-  assert.equal(plat(merged)["enableMouse"], false);
-  assert.equal(plat(merged)["screenMode"], NATIVE_SCREEN_MODE_INLINE);
-  // biome-ignore lint/complexity/useLiteralKeys: index-signature access.
-  assert.equal(merged["inlineRows"], 4);
+  assert.equal(platKey(merged, "enableMouse"), false);
+  assert.equal(platKey(merged, "screenMode"), NATIVE_SCREEN_MODE_INLINE);
+  assert.equal(cfgKey(merged, "inlineRows"), 4);
 });
 
 test("screen: invalid configurations are rejected", () => {
@@ -71,7 +71,10 @@ test("screen: invalid configurations are rejected", () => {
   for (const screen of cases) {
     assert.throws(
       () =>
-        mergeScreenIntoNativeConfig(base, screen as Parameters<typeof mergeScreenIntoNativeConfig>[1]),
+        mergeScreenIntoNativeConfig(
+          base,
+          screen as Parameters<typeof mergeScreenIntoNativeConfig>[1],
+        ),
       (err: unknown) => err instanceof ZrUiError && err.code === "ZRUI_INVALID_PROPS",
       `expected rejection for ${JSON.stringify(screen)}`,
     );
@@ -82,8 +85,7 @@ test("screen: inline rows at bounds are accepted", () => {
   const base = normalizeBackendNativeConfig(undefined);
   for (const rows of [1, INLINE_ROWS_MAX]) {
     const merged = mergeScreenIntoNativeConfig(base, { mode: "inline", inlineRows: rows });
-    // biome-ignore lint/complexity/useLiteralKeys: index-signature access.
-    assert.equal(merged["inlineRows"], rows);
+    assert.equal(cfgKey(merged, "inlineRows"), rows);
   }
 });
 

@@ -20,12 +20,15 @@ Individual widgets carry explicit [stability tiers](docs/widgets/stability.md) (
 
 Dashboards, control planes, internal tools, log viewers, agent consoles, and developer workflows that need more than line-oriented output: multi-panel layouts, routed screens, focusable controls, forms, tables, overlays, and predictable behavior under keyboard and mouse input.
 
+Apps choose their presentation: full-screen on the alternate buffer, or **inline screen mode** — a bounded region on the primary screen with terminal scrollback preserved above it and the final frame left in scrollback on exit (the presentation style of agent CLIs, progress UIs, and REPLs). See the [Screen Modes guide](docs/guide/screen-modes.md).
+
 ## Why Rezi
 
 - A structured app model instead of a rendering loop you assemble yourself
 - A declarative widget API that does not require React
 - Native framebuffer diffing and terminal output through a fuzz-tested C engine
 - First-party widgets for forms, tables, trees, overlays, charts, file pickers, and command palettes
+- Full-screen and inline screen modes from the same widget API (`screen: { mode: "inline", inlineRows: 9 }`)
 - Reproducible rendering and input contracts, so application behavior is testable
 
 ## Example
