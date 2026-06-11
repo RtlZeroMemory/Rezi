@@ -334,15 +334,29 @@ function renderBlock(block: MarkdownBlock, ctx: RenderCtx): VNode {
   }
 }
 
+/** Resolves the effective block gap for render options. Internal surface. */
+export function resolveMarkdownBlockGap(rawGap: number | undefined): number {
+  return rawGap !== undefined && Number.isFinite(rawGap) && rawGap >= 0 ? Math.floor(rawGap) : 1;
+}
+
+/**
+ * Renders one parsed top-level markdown block onto existing widgets. Used by
+ * createMarkdownStream() to cache rendered blocks across appends.
+ */
+export function renderMarkdownBlock(
+  block: MarkdownBlock,
+  options: MarkdownRenderOptions = {},
+): VNode {
+  return renderBlock(block, { blockGap: resolveMarkdownBlockGap(options.blockGap) });
+}
+
 /**
  * Renders a pre-parsed markdown document onto existing widgets. Use together
- * with parseMarkdown() to cache parsed documents (for example per streamed
- * transcript block); ui.markdown() is the one-call convenience wrapper.
+ * with parseMarkdown() to cache parsed documents, or createMarkdownStream()
+ * for append-only sources; ui.markdown() is the one-call convenience wrapper.
  */
 export function renderMarkdown(doc: MarkdownDocument, options: MarkdownRenderOptions = {}): VNode {
-  const rawGap = options.blockGap;
-  const blockGap =
-    rawGap !== undefined && Number.isFinite(rawGap) && rawGap >= 0 ? Math.floor(rawGap) : 1;
+  const blockGap = resolveMarkdownBlockGap(options.blockGap);
   const ctx: RenderCtx = { blockGap };
   const children = doc.blocks.map((block) => renderBlock(block, ctx));
   return column(

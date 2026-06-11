@@ -664,11 +664,12 @@ function isParagraphInterrupter(line: string): boolean {
   return false;
 }
 
-function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
+function parseBlocks(lines: readonly string[], depth: number, starts?: number[]): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   if (depth > MAX_BLOCK_DEPTH) {
     const text = lines.join(" ").trim();
     if (text.length > 0) {
+      starts?.push(0);
       blocks.push({ kind: "paragraph", children: [{ kind: "text", text }] });
     }
     return blocks;
@@ -676,6 +677,7 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
 
   let i = 0;
   while (i < lines.length) {
+    const blockStart = i;
     const line = lines[i] ?? "";
     if (line.trim().length === 0) {
       i++;
@@ -698,6 +700,7 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
           i++;
         }
         if (i < lines.length) i++;
+        starts?.push(blockStart);
         blocks.push({ kind: "codeBlock", language, text: content.join("\n") });
         continue;
       }
@@ -707,12 +710,14 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
     if (atx !== null) {
       const level = Math.min(Math.max((atx[1] ?? "#").length, 1), 6) as 1 | 2 | 3 | 4 | 5 | 6;
       const content = (atx[2] ?? "").replace(/[ \t]+#+$/, "").trim();
+      starts?.push(blockStart);
       blocks.push({ kind: "heading", level, children: parseInlineRun(content, depth) });
       i++;
       continue;
     }
 
     if (HR_RE.test(line)) {
+      starts?.push(blockStart);
       blocks.push({ kind: "hr" });
       i++;
       continue;
@@ -726,12 +731,14 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
         inner.push(m[1] ?? "");
         i++;
       }
+      starts?.push(blockStart);
       blocks.push({ kind: "blockquote", children: parseBlocks(inner, depth + 1) });
       continue;
     }
 
     const list = parseList(lines, i, depth);
     if (list !== null) {
+      starts?.push(blockStart);
       blocks.push(list.block);
       i = list.next;
       continue;
@@ -739,6 +746,7 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
 
     const table = parseTable(lines, i, depth);
     if (table !== null) {
+      starts?.push(blockStart);
       blocks.push(table.block);
       i = table.next;
       continue;
@@ -765,6 +773,7 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
         }
         break;
       }
+      starts?.push(blockStart);
       blocks.push({ kind: "codeBlock", language: "", text: content.join("\n") });
       continue;
     }
@@ -775,6 +784,7 @@ function parseBlocks(lines: readonly string[], depth: number): MarkdownBlock[] {
       paragraph.push(lines[i] ?? "");
       i++;
     }
+    starts?.push(blockStart);
     blocks.push({ kind: "paragraph", children: parseParagraphInlines(paragraph, depth) });
   }
   return blocks;
@@ -791,12 +801,23 @@ function deepFreeze<T>(value: T): T {
 }
 
 /**
+ * Parses pre-normalized lines into deeply frozen top-level blocks. Internal
+ * surface shared by parseMarkdown() and the streaming parser; when `starts`
+ * is provided it receives the source line index of every top-level block.
+ */
+export function parseMarkdownLines(lines: readonly string[], starts?: number[]): MarkdownBlock[] {
+  const blocks = parseBlocks(lines, 0, starts);
+  for (const block of blocks) deepFreeze(block);
+  return blocks;
+}
+
+/**
  * Parses a GFM-subset markdown document. Never throws: malformed constructs
  * degrade to literal text and the result is deeply frozen.
  */
 export function parseMarkdown(source: string): MarkdownDocument {
   const text = typeof source === "string" ? source : "";
   const normalized = text.replace(/\r\n?/g, "\n").split("\u0000").join("\uFFFD");
-  const blocks = parseBlocks(normalized.split("\n"), 0);
-  return deepFreeze({ blocks });
+  const blocks = parseMarkdownLines(normalized.split("\n"));
+  return Object.freeze({ blocks: Object.freeze(blocks) });
 }

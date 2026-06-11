@@ -8,7 +8,8 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Added
 
-- **core/markdown**: New `ui.markdown(source, props?)` widget (`experimental` tier) rendering a GitHub-Flavored-Markdown subset onto existing widgets: headings, paragraphs with wrapping, fenced/indented code with tokenizer-based monochrome syntax emphasis, nested and task lists, blockquotes, pipe tables with alignment, thematic breaks, and inline strong/em/del/code/links/autolinks/entities. The zero-dependency parser is bounded and fuzz-tested, never throws on untrusted input, and is exported as `parseMarkdown`/`renderMarkdown` with frozen `MarkdownDocument` AST types for caller-side caching (streaming). JSX exposes `<Markdown source="…" />`.
+- **core/markdown**: New `ui.markdown(source, props?)` widget (`experimental` tier) rendering a GitHub-Flavored-Markdown subset onto existing widgets: headings, paragraphs with wrapping, fenced/indented code with tokenizer-based monochrome syntax emphasis, nested and task lists, blockquotes, pipe tables with alignment, thematic breaks, and inline strong/em/del/code/links/autolinks/entities. The zero-dependency parser is bounded and fuzz-tested, never throws on untrusted input, and is exported as `parseMarkdown`/`renderMarkdown`/`renderMarkdownBlock` with frozen `MarkdownDocument` AST types. JSX exposes `<Markdown source="…" />`.
+- **core/markdown**: `createMarkdownStream()` for append-only sources (agent transcripts, live logs): re-parses only the volatile tail block per append and caches completed blocks plus their rendered VNodes with referential identity, keeping appends O(tail). Chunk boundaries (including split CRLF pairs) never change the result — `document()` always deep-equals `parseMarkdown(source())`, pinned by fuzz tests.
 
 ## [0.1.0-beta.1] - 2026-06-11
 

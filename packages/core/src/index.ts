@@ -339,9 +339,16 @@ export type {
   MarkdownInline,
   MarkdownListItem,
   MarkdownRenderOptions,
+  MarkdownStream,
+  MarkdownStreamOptions,
   MarkdownTableAlign,
 } from "./widgets/markdown/index.js";
-export { parseMarkdown, renderMarkdown } from "./widgets/markdown/index.js";
+export {
+  createMarkdownStream,
+  parseMarkdown,
+  renderMarkdown,
+  renderMarkdownBlock,
+} from "./widgets/markdown/index.js";
 export type {
   InspectorOverlayFrameTiming,
   InspectorOverlayPosition,

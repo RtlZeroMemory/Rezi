@@ -53,12 +53,38 @@ with flanking checks.
   hard-coded.
 - Styled paragraphs wrap at word boundaries; unstyled paragraphs use
   grapheme-safe `text` wrapping.
-- For streamed or frequently re-rendered documents, pre-parse with
-  `parseMarkdown(source)` and render cached documents with
-  `renderMarkdown(doc, options)`; completed blocks of an append-only stream
-  can be cached by the caller. A built-in streaming mode is planned.
+- For append-only sources use `createMarkdownStream()` (see below); for
+  static documents that re-render often, pre-parse with
+  `parseMarkdown(source)` and render with `renderMarkdown(doc, options)`.
 - The parsed `MarkdownDocument` AST (`MarkdownBlock` / `MarkdownInline`) is
   exported and deeply frozen.
+
+## Streaming
+
+For append-only sources — agent transcripts, live logs — use
+`createMarkdownStream(options?)`. Under append-only input every top-level
+block except the last is immutable, so the stream re-parses only the tail
+block per append and caches both parsed blocks and their rendered VNodes.
+Completed blocks keep referential identity, so reconciliation and layout
+stability signatures skip untouched subtrees; appends stay O(tail) instead of
+O(document).
+
+```ts
+import { createMarkdownStream } from "@rezi-ui/core";
+
+const stream = createMarkdownStream({ blockGap: 1 });
+
+onTokens((chunk) => {
+  stream.append(chunk); // chunks may split lines, CRLF pairs, or words
+  app.update((s) => ({ ...s, transcriptRev: s.transcriptRev + 1 }));
+});
+
+app.view((state) => ui.box({ border: "none" }, [stream.vnode()]));
+```
+
+The stream guarantees that `stream.document()` always deep-equals
+`parseMarkdown(stream.source())` regardless of chunk boundaries.
+`reset(source?)` clears the buffer; `document()` exposes the parsed AST.
 
 ## Related
 

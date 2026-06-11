@@ -1195,6 +1195,9 @@ export function createLayerStackState(): LayerStackState;
 export function createLoadingState(initial?: readonly string[]): LoadingState;
 
 // @public
+export function createMarkdownStream(options?: MarkdownStreamOptions): MarkdownStream;
+
+// @public
 export function createReproReplayDriver(opts: ReproReplayDriverOptions): ReproReplayDriver;
 
 // @public
@@ -3955,6 +3958,18 @@ export type MarkdownRenderOptions = Readonly<{
 }>;
 
 // @public
+export type MarkdownStream = Readonly<{
+    append: (chunk: string) => void;
+    reset: (source?: string) => void;
+    source: () => string;
+    document: () => MarkdownDocument;
+    vnode: () => VNode;
+}>;
+
+// @public
+export type MarkdownStreamOptions = MarkdownRenderOptions;
+
+// @public
 export type MarkdownTableAlign = "left" | "center" | "right";
 
 // @public
@@ -4530,6 +4545,9 @@ export function renderHorizontalScrollbar(width: number, state: ScrollbarState, 
 
 // @public
 export function renderMarkdown(doc: MarkdownDocument, options?: MarkdownRenderOptions): VNode;
+
+// @public
+export function renderMarkdownBlock(block: MarkdownBlock, options?: MarkdownRenderOptions): VNode;
 
 // Warning: (ae-forgotten-export) The symbol "ResolvedTextStyle" needs to be exported by the entry point index.d.ts
 //

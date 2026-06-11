@@ -14,7 +14,12 @@ export type {
   MarkdownTableAlign,
 } from "./ast.js";
 export { parseMarkdown } from "./parse.js";
-export { type MarkdownRenderOptions, renderMarkdown } from "./render.js";
+export { type MarkdownRenderOptions, renderMarkdown, renderMarkdownBlock } from "./render.js";
+export {
+  createMarkdownStream,
+  type MarkdownStream,
+  type MarkdownStreamOptions,
+} from "./stream.js";
 
 /**
  * Renders a GitHub-Flavored-Markdown subset onto existing widgets.
