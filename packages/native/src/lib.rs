@@ -343,6 +343,25 @@ pub fn engine_submit_drawlist(engine_id: u32, drawlist: Uint8Array) -> i32 {
     unsafe { ffi::engine_submit_drawlist(guard.slot.engine, bytes.as_ptr(), bytes.len() as i32) }
 }
 
+#[napi(js_name = "engineCommitScrollback")]
+pub fn engine_commit_scrollback(engine_id: u32, drawlist: Uint8Array, rows: u32) -> i32 {
+    let guard = match get_engine_guard(engine_id) {
+        Ok(guard) => guard,
+        Err(rc) => return rc,
+    };
+    if !guard.slot.is_owner_thread() {
+        return ffi::ZR_ERR_INVALID_ARGUMENT;
+    }
+
+    if drawlist.len() > (i32::MAX as usize) {
+        return ffi::ZR_ERR_LIMIT;
+    }
+    let bytes = drawlist.as_ref();
+    unsafe {
+        ffi::engine_commit_scrollback(guard.slot.engine, bytes.as_ptr(), bytes.len() as i32, rows)
+    }
+}
+
 #[napi(js_name = "enginePresent")]
 pub fn engine_present(engine_id: u32) -> i32 {
     let guard = match get_engine_guard(engine_id) {

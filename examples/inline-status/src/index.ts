@@ -21,15 +21,33 @@ const app = createNodeApp<Record<string, never>>({
   },
 });
 
+let lastCheckpoint = 0;
+
+function maybePrintCheckpoint(percent: number): void {
+  if (percent === 0 || percent % 25 !== 0 || percent === lastCheckpoint) return;
+  lastCheckpoint = percent;
+  /* Committed lines scroll into terminal history above the live region. */
+  void app
+    .printAbove(ui.text(`[sync] checkpoint reached: ${String(percent)}%`, { variant: "caption" }))
+    .catch((err: unknown) => {
+      process.stderr.write(`printAbove failed: ${String(err)}\n`);
+    });
+}
+
 const SyncPanel = defineWidget((_props: Record<string, never>, ctx) => {
   const [tick, setTick] = ctx.useState(0);
   const [percent, setPercent] = ctx.useState(0);
+  const percentRef = ctx.useRef(0);
+  percentRef.current = percent;
 
   useInterval(
     ctx,
     () => {
       setTick((value) => value + 1);
       setPercent((value) => Math.min(100, value + 1));
+      setTimeout(() => {
+        maybePrintCheckpoint(percentRef.current);
+      }, 0);
     },
     TICK_MS,
   );
@@ -43,7 +61,7 @@ const SyncPanel = defineWidget((_props: Record<string, never>, ctx) => {
       ui.text(`${String(percent)}%`, { variant: "label" }),
     ]),
     ui.progress(percent / 100),
-    ui.text("scrollback stays above - press q to quit (frame stays visible)", {
+    ui.text("q quits - +/- resize region - checkpoints print above", {
       variant: "caption",
     }),
   ]);
@@ -51,10 +69,31 @@ const SyncPanel = defineWidget((_props: Record<string, never>, ctx) => {
 
 app.view(() => SyncPanel({}));
 
+let inlineRows = 9;
+
 app.keys({
   q: () => void app.stop(),
   escape: () => void app.stop(),
   "ctrl+c": () => void app.stop(),
+  /* Grow/shrink the live region at runtime; layout follows the resize. */
+  "shift+=": () => {
+    const nextRows = Math.min(16, inlineRows + 1);
+    void app.setInlineRows(nextRows).then(
+      () => {
+        inlineRows = nextRows;
+      },
+      () => {},
+    );
+  },
+  "-": () => {
+    const nextRows = Math.max(5, inlineRows - 1);
+    void app.setInlineRows(nextRows).then(
+      () => {
+        inlineRows = nextRows;
+      },
+      () => {},
+    );
+  },
 });
 
 await app.run();

@@ -2571,3 +2571,122 @@ zr_result_t zr_diff_render(const zr_fb_t* prev, const zr_fb_t* next, const plat_
                            scratch_damage_rect_cap, NULL, enable_scroll_optimizations, out_buf, out_cap, out_len,
                            out_final_term_state, out_stats);
 }
+
+/* Erase from the cursor to the end of the line (EL default mode 0). */
+static bool zr_emit_el0_clear_line_tail(zr_sb_t* sb) {
+  if (!sb) {
+    return false;
+  }
+  const uint8_t seq[] = "\x1b[K";
+  return zr_sb_write_bytes(sb, seq, sizeof(seq) - 1u);
+}
+
+/*
+  Close out one committed row: baseline SGR, erase the tail, re-anchor column.
+
+  Why: EL and any LF scroll fill use the *current* background (BCE), so the
+  style must be the blank baseline before either runs. CR re-anchors column 0
+  and cancels pending autowrap from full-width rows. When the row ended on a
+  drift-capable glyph (cursor position invalidated), the cursor is first
+  re-anchored to the intended end column with absolute-column CHA so EL
+  erases from the painted edge rather than a drifted terminal column.
+*/
+static zr_result_t zr_diff_commit_finish_row(zr_diff_ctx_t* ctx, uint32_t row_end_col) {
+  if (!zr_term_cursor_pos_is_valid(&ctx->ts)) {
+    if (!zr_diff_write_csi(&ctx->sb) || !zr_sb_write_u32_dec(&ctx->sb, row_end_col + 1u) ||
+        !zr_sb_write_u8(&ctx->sb, ZR_CSI_FINAL_CHA)) {
+      return ZR_ERR_LIMIT;
+    }
+    ctx->ts.cursor_x = row_end_col;
+    ctx->ts.flags |= ZR_TERM_STATE_CURSOR_POS_VALID;
+  }
+
+  const zr_result_t link_rc = zr_diff_emit_link_transition(ctx, 0u);
+  if (link_rc != ZR_OK) {
+    return link_rc;
+  }
+  if (!zr_emit_sgr_absolute(&ctx->sb, &ctx->ts, zr_diff_baseline_style(), ctx->caps)) {
+    return ZR_ERR_LIMIT;
+  }
+  if (!zr_emit_el0_clear_line_tail(&ctx->sb)) {
+    return ZR_ERR_LIMIT;
+  }
+  if (!zr_sb_write_u8(&ctx->sb, ZR_ASCII_CR)) {
+    return ZR_ERR_LIMIT;
+  }
+  ctx->ts.cursor_x = 0u;
+  ctx->ts.flags |= ZR_TERM_STATE_CURSOR_POS_VALID;
+  return zr_sb_truncated(&ctx->sb) ? ZR_ERR_LIMIT : ZR_OK;
+}
+
+zr_result_t zr_diff_render_commit(const zr_fb_t* content, const plat_caps_t* caps,
+                                  const zr_term_state_t* initial_term_state, uint32_t live_cols, uint8_t* out_buf,
+                                  size_t out_cap, size_t* out_len, zr_term_state_t* out_final_term_state) {
+  zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
+  if (!content || !caps || !initial_term_state || !out_buf || !out_len || !out_final_term_state) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (initial_term_state->screen_mode != ZR_SCREEN_MODE_INLINE) {
+    return ZR_ERR_UNSUPPORTED;
+  }
+  if (content->rows == 0u || content->cols == 0u || !content->cells || live_cols == 0u) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  zr_diff_ctx_t ctx;
+  memset(&ctx, 0, sizeof(ctx));
+  ctx.prev = content;
+  ctx.next = content;
+  ctx.caps = caps;
+  zr_sb_init(&ctx.sb, out_buf, out_cap);
+  ctx.ts = *initial_term_state;
+
+  /* --- Re-anchor at the region top, then rebase claims to content rows --- */
+  if (!zr_emit_move_inline(&ctx.sb, &ctx.ts, caps, 0u, 0u)) {
+    zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
+    return ZR_ERR_LIMIT;
+  }
+  ctx.ts.inline_rows_claimed = 1u;
+
+  /* --- Paint content rows; row moves claim physical lines via LF --- */
+  const uint32_t paint_cols = (content->cols < live_cols) ? content->cols : live_cols;
+  for (uint32_t y = 0u; y < content->rows; y++) {
+    zr_result_t rc = zr_diff_render_span(&ctx, y, 0u, paint_cols - 1u);
+    if (rc != ZR_OK) {
+      zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
+      return rc;
+    }
+    rc = zr_diff_commit_finish_row(&ctx, paint_cols);
+    if (rc != ZR_OK) {
+      zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
+      return rc;
+    }
+  }
+
+  /* --- Claim one fresh line below the block: the new region top --- */
+  if (!zr_emit_move_inline(&ctx.sb, &ctx.ts, caps, 0u, content->rows)) {
+    zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
+    return ZR_ERR_LIMIT;
+  }
+  if (zr_sb_truncated(&ctx.sb)) {
+    zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
+    return ZR_ERR_LIMIT;
+  }
+
+  /*
+    Rebase the returned region state below the committed block.
+
+    Why: The committed lines are no longer addressable; the live region now
+    starts at the fresh line. Clearing SCREEN_VALID forces the caller's next
+    render to establish the inline baseline (erase below + full repaint).
+  */
+  ctx.ts.cursor_x = 0u;
+  ctx.ts.cursor_y = 0u;
+  ctx.ts.inline_rows_claimed = 1u;
+  ctx.ts.flags &= (uint8_t)~ZR_TERM_STATE_SCREEN_VALID;
+  ctx.ts.flags |= ZR_TERM_STATE_CURSOR_POS_VALID;
+
+  *out_len = zr_sb_len(&ctx.sb);
+  *out_final_term_state = ctx.ts;
+  return ZR_OK;
+}

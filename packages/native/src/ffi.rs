@@ -408,6 +408,12 @@ unsafe extern "C" {
         bytes: *const u8,
         bytes_len: i32,
     ) -> ZrResultT;
+    pub(crate) fn engine_commit_scrollback(
+        e: *mut zr_engine_t,
+        bytes: *const u8,
+        bytes_len: i32,
+        rows: u32,
+    ) -> ZrResultT;
     pub(crate) fn engine_present(e: *mut zr_engine_t) -> ZrResultT;
 
     pub(crate) fn engine_get_metrics(

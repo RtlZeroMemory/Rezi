@@ -52,6 +52,34 @@ consumes rows: `ui.panel(...)` adds two border rows plus padding, and stack
 gaps add one row per gap. The `examples/inline-status` panel (one status row,
 a progress bar, and a caption) needs 9 rows.
 
+## Printing into scrollback
+
+Inline apps can commit finished content into terminal history above the live
+region — the pattern agent CLIs use for completed messages and log lines
+(Ink's `<Static>`, Bubble Tea's `Println`):
+
+```ts
+await app.printAbove(ui.text("[sync] checkpoint reached: 50%"));
+```
+
+- The tree renders at the current viewport width; rows default to its
+  measured height (pass `{ rows }` to pin). Committed blocks become ordinary
+  scrollback: they scroll with the session and survive app exit.
+- Commits are emitted atomically with the next frame (single flush), in
+  submission order; the live region re-anchors below them.
+- Engine bounds apply (1024 rows per commit, 4096 staged rows); exceeding
+  them rejects with `ZRUI_BACKEND_ERROR`.
+
+## Resizing the region at runtime
+
+```ts
+await app.setInlineRows(12);
+```
+
+The engine clamps to the live terminal height and emits a resize event, so
+layout follows automatically. Rows must be in 1..1024. Both APIs throw in
+alt-screen mode.
+
 ## Behavior notes
 
 - **Capability fallback**: protocol images (kitty / sixel / iTerm2) require

@@ -61,6 +61,19 @@ export interface App<S> {
   run(): Promise<void>;
   stop(): Promise<void>;
   dispose(): void;
+  /**
+   * Render a standalone widget tree and commit it into terminal scrollback
+   * above the inline region (inline screen mode only). Rows default to the
+   * tree's measured height at the current viewport width; pass `rows` to pin.
+   * The committed block becomes ordinary terminal history.
+   */
+  printAbove(view: VNode, opts?: Readonly<{ rows?: number }>): Promise<void>;
+  /**
+   * Change the inline viewport height at runtime (inline screen mode only).
+   * The engine clamps to the live terminal height and emits a resize event,
+   * so layout follows automatically.
+   */
+  setInlineRows(rows: number): Promise<void>;
   keys(bindings: BindingMap<KeyContext<S>>): void;
   modes(modes: ModeBindingMap<KeyContext<S>>): void;
   setMode(modeName: string): void;

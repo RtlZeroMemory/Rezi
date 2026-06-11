@@ -24,6 +24,7 @@ import {
 } from "./engineWorker/frameMailbox.js";
 import {
   type EngineWorkerMessageContext,
+  handleCommitScrollbackMessage,
   handleDebugDisableMessage,
   handleDebugEnableMessage,
   handleDebugExportMessage,
@@ -581,6 +582,9 @@ function onMessage(msg: MainToWorkerMessage): void {
       return;
     case "getCaps":
       handleGetCapsMessage(msg, messageContext);
+      return;
+    case "commitScrollback":
+      handleCommitScrollbackMessage(msg, messageContext);
       return;
     case "shutdown":
       handleShutdownMessage(msg, messageContext);

@@ -133,6 +133,27 @@ zr_result_t zr_diff_render(const zr_fb_t* prev, const zr_fb_t* next, const plat_
                            zr_diff_stats_t* out_stats);
 
 /*
+  Render framebuffer rows as a scrollback-commit block (INLINE mode only).
+
+  Why: Agent-style UIs append finished content into terminal scrollback above
+  the live region. Content rows are painted sequentially from the region top,
+  claiming physical lines with LF so earlier lines scroll into history, then
+  the region re-anchors on a fresh line below the block.
+
+  Contract:
+    - Pure: does not mutate `content`.
+    - initial_term_state must have screen_mode == ZR_SCREEN_MODE_INLINE.
+    - Paints min(content->cols, live_cols) cells per row, erasing each tail.
+    - On success, out_final_term_state holds the re-anchored region state:
+      cursor (0,0), one claimed row, SCREEN_VALID cleared (callers must follow
+      with a baseline-establishing render of the live region).
+    - On failure, *out_len = 0 and outputs are zeroed (no partial effects).
+*/
+zr_result_t zr_diff_render_commit(const zr_fb_t* content, const plat_caps_t* caps,
+                                  const zr_term_state_t* initial_term_state, uint32_t live_cols, uint8_t* out_buf,
+                                  size_t out_cap, size_t* out_len, zr_term_state_t* out_final_term_state);
+
+/*
   Extended entrypoint for engine-internal callsites that can provide
   optional per-line scratch storage.
 */

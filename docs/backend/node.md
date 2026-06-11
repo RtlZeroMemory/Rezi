@@ -87,6 +87,16 @@ const app = createNodeApp({
 });
 ```
 
+Inline screen-mode runtime APIs (engine ABI 1.4.0+):
+
+- `app.printAbove(view, opts?)` renders a standalone widget tree and commits
+  it into terminal scrollback above the region (backend
+  `commitScrollback(drawlist, rows)`).
+- `app.setInlineRows(rows)` changes the inline viewport height at runtime
+  (backend `setInlineRows(rows)`), re-sending the created runtime config with
+  the new height.
+- Both reject unless the backend was created with `screen.mode: "inline"`.
+
 Emoji width policy:
 
 - `emojiWidthPolicy` keeps core text measurement and native rendering aligned.

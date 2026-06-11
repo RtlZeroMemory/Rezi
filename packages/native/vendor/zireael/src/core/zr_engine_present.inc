@@ -181,6 +181,39 @@ static void zr_engine_present_wrap_sync(zr_engine_t* e, size_t* inout_out_len, z
   stats->bytes_emitted = *inout_out_len;
 }
 
+/*
+  Emit staged scrollback-commit blocks ahead of the live-region diff.
+
+  Why: Blocks must precede the diff inside the same single flush so committed
+  lines scroll into history and the live region re-anchors below them
+  atomically (within the synchronized-update wrap). The chained terminal
+  state hands the diff a region rebased under the last block.
+*/
+static zr_result_t zr_engine_present_render_commits(zr_engine_t* e, zr_term_state_t* inout_ts, size_t* out_len) {
+  if (!e || !inout_ts || !out_len) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  *out_len = 0u;
+  if (e->commit_pending_count == 0u) {
+    return ZR_OK;
+  }
+
+  size_t at = 0u;
+  for (uint32_t i = 0u; i < e->commit_pending_count; i++) {
+    size_t part = 0u;
+    zr_term_state_t next_ts;
+    const zr_result_t rc = zr_diff_render_commit(&e->commit_pending[i], &e->caps, inout_ts, e->fb_next.cols,
+                                                 e->out_buf + at, e->out_cap - at, &part, &next_ts);
+    if (rc != ZR_OK) {
+      return rc;
+    }
+    *inout_ts = next_ts;
+    at += part;
+  }
+  *out_len = at;
+  return ZR_OK;
+}
+
 static zr_result_t zr_engine_present_render(zr_engine_t* e, const zr_fb_t* present_fb, size_t* out_len,
                                             zr_term_state_t* final_ts, zr_diff_stats_t* stats,
                                             zr_image_state_t* out_image_state_stage) {
@@ -198,14 +231,22 @@ static zr_result_t zr_engine_present_render(zr_engine_t* e, const zr_fb_t* prese
   scratch.row_cap = e->diff_row_cap;
   scratch.prev_hashes_valid = e->diff_prev_hashes_valid;
 
-  /* --- Render framebuffer diff into out_buf --- */
-  zr_result_t rc =
-      zr_diff_render_ex(&e->fb_prev, present_fb, &e->caps, &e->term_state, &e->cursor_desired, &e->cfg_runtime.limits,
-                        e->damage_rects, e->damage_rect_cap, &scratch, e->cfg_runtime.enable_scroll_optimizations,
-                        e->out_buf, e->out_cap, out_len, final_ts, stats);
+  /* --- Emit staged scrollback commits, rebasing the region below them --- */
+  zr_term_state_t initial_ts = e->term_state;
+  size_t commit_len = 0u;
+  zr_result_t rc = zr_engine_present_render_commits(e, &initial_ts, &commit_len);
   if (rc != ZR_OK) {
     return rc;
   }
+
+  /* --- Render framebuffer diff into out_buf after any commit bytes --- */
+  rc = zr_diff_render_ex(&e->fb_prev, present_fb, &e->caps, &initial_ts, &e->cursor_desired, &e->cfg_runtime.limits,
+                         e->damage_rects, e->damage_rect_cap, &scratch, e->cfg_runtime.enable_scroll_optimizations,
+                         e->out_buf + commit_len, e->out_cap - commit_len, out_len, final_ts, stats);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  *out_len += commit_len;
 
   /* --- Append optional image sideband bytes --- */
   *out_image_state_stage = e->image_state;
@@ -393,6 +434,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
     }
   }
 
+  zr_engine_commit_pending_release(e);
   zr_engine_swap_diff_hashes_on_commit(e);
   if (invalidate_prev_hashes) {
     e->diff_prev_hashes_valid = 0u;

@@ -49,12 +49,15 @@ import {
   DEFAULT_MAX_EVENT_BYTES,
   MAX_SAFE_EVENT_BYTES,
   MAX_SAFE_FPS_CAP,
+  deriveRuntimeConfigBase,
+  isInlineScreenNativeConfig,
   mergeScreenIntoNativeConfig,
   normalizeBackendNativeConfig,
   parseBoundedPositiveIntOrThrow,
   parsePositiveInt,
   parsePositiveIntOr,
   resolveTargetFps,
+  validateInlineRowsOrThrow,
 } from "./backendSharedConfig.js";
 import { DEBUG_QUERY_DEFAULT_RECORDS, DEBUG_QUERY_MAX_RECORDS } from "./backendSharedDebug.js";
 import { attachBackendMarkers } from "./backendSharedMarkers.js";
@@ -200,6 +203,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     frameTransport: frameTransportWire,
   };
   let initConfigResolved: EngineCreateConfig | null = null;
+  const isInlineScreen = isInlineScreenNativeConfig(nativeConfig);
 
   let worker: Worker | null = null;
   let disposed = false;
@@ -220,6 +224,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   > = [];
   const eventWaiters: Array<Deferred<BackendEventBatch>> = [];
   const capsWaiters: Array<Deferred<TerminalCaps>> = [];
+  const commitWaiters: Array<Deferred<void>> = [];
   let cachedCaps: TerminalCaps | null = null;
   let stopRequested = false;
 
@@ -232,6 +237,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   function failAll(err: Error): void {
     while (eventWaiters.length > 0) eventWaiters.shift()?.reject(err);
     while (capsWaiters.length > 0) capsWaiters.shift()?.reject(err);
+    while (commitWaiters.length > 0) commitWaiters.shift()?.reject(err);
     eventQueue.length = 0;
     rejectFrameWaiters(frameTracking, frameAudit, err);
     rejectDebugWaiters(debugChannel, err);
@@ -249,6 +255,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   function rejectPending(err: Error): void {
     while (eventWaiters.length > 0) eventWaiters.shift()?.reject(err);
     while (capsWaiters.length > 0) capsWaiters.shift()?.reject(err);
+    while (commitWaiters.length > 0) commitWaiters.shift()?.reject(err);
     eventQueue.length = 0;
     rejectFrameWaiters(frameTracking, frameAudit, err);
     rejectDebugWaiters(debugChannel, err);
@@ -562,6 +569,22 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
         }
         return;
       }
+
+      case "commitResult": {
+        const waiter = commitWaiters.shift();
+        if (waiter === undefined) return;
+        if (msg.rc === 0) {
+          waiter.resolve();
+        } else {
+          waiter.reject(
+            new ZrUiError(
+              "ZRUI_BACKEND_ERROR",
+              `engine_commit_scrollback failed: code=${String(msg.rc)}`,
+            ),
+          );
+        }
+        return;
+      }
     }
   }
 
@@ -851,6 +874,40 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       const buf = new ArrayBuffer(payload.byteLength);
       copyInto(buf, payload);
       send({ type: "postUserEvent", tag, payload: buf, byteLen: payload.byteLength }, [buf]);
+    },
+
+    async commitScrollback(drawlist: Uint8Array, rows: number): Promise<void> {
+      if (disposed) throw new Error("NodeBackend: disposed");
+      if (fatal !== null) throw fatal;
+      if (!started || worker === null) throw new Error("NodeBackend: not started");
+      if (stopRequested) throw new Error("NodeBackend: stopped");
+      if (!isInlineScreen) {
+        throw new ZrUiError("ZRUI_BACKEND_ERROR", 'commitScrollback requires screen.mode "inline"');
+      }
+      validateInlineRowsOrThrow(rows, "commitScrollback: rows");
+      const buf = new ArrayBuffer(drawlist.byteLength);
+      copyInto(buf, drawlist);
+      const d = deferred<void>();
+      commitWaiters.push(d);
+      send({ type: "commitScrollback", bytes: buf, byteLen: drawlist.byteLength, rows }, [buf]);
+      return d.promise;
+    },
+
+    async setInlineRows(rows: number): Promise<void> {
+      if (disposed) throw new Error("NodeBackend: disposed");
+      if (fatal !== null) throw fatal;
+      if (!started || worker === null) throw new Error("NodeBackend: not started");
+      if (stopRequested) throw new Error("NodeBackend: stopped");
+      if (!isInlineScreen) {
+        throw new ZrUiError("ZRUI_BACKEND_ERROR", 'setInlineRows requires screen.mode "inline"');
+      }
+      validateInlineRowsOrThrow(rows, "setInlineRows: rows");
+      if (initConfigResolved === null) {
+        throw new Error("NodeBackend: not started");
+      }
+      /* Resend the resolved create surface (width policy settles at start). */
+      const runtimeBase = deriveRuntimeConfigBase(initConfigResolved);
+      send({ type: "setConfig", config: { ...runtimeBase, inlineRows: rows } });
     },
 
     async getCaps(): Promise<TerminalCaps> {

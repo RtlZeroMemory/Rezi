@@ -154,6 +154,19 @@ export interface RuntimeBackend {
   postUserEvent(tag: number, payload: Uint8Array): void;
 
   /**
+   * Commit drawlist-rendered rows into terminal scrollback above the inline
+   * region (inline screen mode only). Optional: backends without inline
+   * screen-mode support omit it.
+   */
+  commitScrollback?(drawlist: Uint8Array, rows: number): Promise<void>;
+
+  /**
+   * Change the inline viewport height at runtime (inline screen mode only).
+   * The engine clamps to the live terminal height and emits a resize event.
+   */
+  setInlineRows?(rows: number): Promise<void>;
+
+  /**
    * Get terminal capabilities.
    *
    * Resolves with the terminal's capability snapshot. Should be called after

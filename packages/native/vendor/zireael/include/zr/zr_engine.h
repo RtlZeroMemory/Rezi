@@ -113,6 +113,28 @@ zr_result_t engine_post_user_event(zr_engine_t* e, uint32_t tag, const uint8_t* 
 zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int bytes_len);
 
 /*
+  Stage drawlist-rendered rows for commitment into terminal scrollback.
+
+  Why: Inline-mode applications append finished content (log lines, completed
+  messages) above the live region, where it becomes ordinary terminal
+  scrollback, while the live region continues rendering below.
+
+  Contract:
+    - INLINE screen mode only; returns ZR_ERR_UNSUPPORTED in ALT mode.
+    - `bytes` is a normal versioned drawlist, validated and executed against a
+      transient framebuffer of (viewport cols x rows); drawlist resources
+      (DEF/FREE resource commands) act on a transient snapshot and do not persist.
+    - rows must be in [1, ZR_COMMIT_ROWS_MAX]; staged rows accumulate across
+      calls up to ZR_COMMIT_PENDING_ROWS_MAX (ZR_ERR_LIMIT beyond).
+    - Staged blocks are emitted by the next successful engine_present(), in
+      submission order, inside its single flush (and synchronized-update wrap)
+      before the live-region diff; the live region re-anchors below them.
+    - Staged blocks survive failed presents and are released on success.
+    - No-partial-effects: a failed call stages nothing.
+*/
+zr_result_t engine_commit_scrollback(zr_engine_t* e, const uint8_t* bytes, int bytes_len, uint32_t rows);
+
+/*
   Present current frame by diffing and writing terminal output.
 
   Contract:
