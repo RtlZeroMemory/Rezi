@@ -16,6 +16,23 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - **core/renderer**: Per-side box borders now render standalone edges. A box with only `borderLeft` (or any vertical-only side combination) previously drew nothing when shorter than 2 rows; corner rows are now only required when a horizontal edge is present. Markdown blockquotes use this to render a GitHub-style dim left bar instead of a rounded box.
 
+## [0.1.0-beta.3] - 2026-06-11
+
+### Added
+
+- **core/node**: `app.printAbove(view, { rows? })` — render a standalone widget tree at the current viewport width (rows auto-measured from layout, including wrapping and stack gaps) and commit it into terminal scrollback above the inline region, where it becomes ordinary terminal history (the Ink `<Static>` / Bubble Tea `Println` pattern for agent-style CLIs). Works on both worker and in-process execution paths with engine failures surfaced as rejected promises. (#417)
+- **core/node**: `app.setInlineRows(rows)` — change the inline viewport height at runtime; the engine clamps to the live terminal and emits a resize event so layout follows. Runtime updates resend the start-resolved config surface, preserving emoji width policy. (#417)
+- **native**: `engineCommitScrollback` binding for Zireael's scrollback-commit primitive. (#417)
+
+### Changed
+
+- **native/vendor**: Zireael engine updated to v1.5.0 (engine ABI 1.4.0) with the scrollback-commit primitive and drift-safe committed-row tail erases; requested ABI pin moved to 1.4.0. (#417)
+- **examples**: `examples/inline-status` prints checkpoint lines into scrollback at progress quarters and resizes the live region on `+`/`-`. (#417)
+
+### Documentation
+
+- **guide**: Screen Modes guide gained "Printing into scrollback" and "Resizing the region at runtime" sections; Node backend page documents the new APIs. (#417)
+
 ## [0.1.0-beta.2] - 2026-06-11
 
 ### Added
