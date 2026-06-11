@@ -120,9 +120,9 @@ width: conditionalConstraints.ifThenElse(
 
 ---
 
-## 6) Responsive grid (alpha contract)
+## 6) Responsive grid (beta contract)
 
-Because `grid.columns: expr(...)` is intentionally invalid in alpha, build two grids and switch with `display`.
+Because `grid.columns: expr(...)` is intentionally invalid in the beta line, build two grids and switch with `display`.
 
 ```ts
 ui.column({ gap: 1 }, [

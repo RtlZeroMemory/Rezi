@@ -31,7 +31,7 @@ Need to set a size?
 
 5. **2D arrangement**
    - Use: `ui.grid({ columns: number | string, ... })`
-   - For responsive columns in alpha: compose multiple grids and switch via `display`
+   - For responsive columns in the beta line: compose multiple grids and switch via `display`
 
 ---
 

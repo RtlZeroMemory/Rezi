@@ -244,8 +244,8 @@ When these child-constraint props are passed to unsupported widget kinds (for ex
 Responsive layout notes:
 
 - Use `fluid(min, max, options?)` to interpolate deterministically between breakpoints (`sm`, `md`, `lg`, `xl`) with floor semantics and clamped bounds.
-- `%` size strings and responsive-map layout constraints (`{ sm, md, lg, xl }`) are removed in the breaking alpha. Use `expr("steps(...)")` or `fluid(...)`.
-- `grid.columns` currently accepts `number | string` only (alpha contract). `columns: expr(...)` is invalid.
+- `%` size strings and responsive-map layout constraints (`{ sm, md, lg, xl }`) were removed during the alpha line. Use `expr("steps(...)")` or `fluid(...)`.
+- `grid.columns` currently accepts `number | string` only (beta contract). `columns: expr(...)` is invalid.
 
 ```typescript
 import { fluid, ui } from "@rezi-ui/core";

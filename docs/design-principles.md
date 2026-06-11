@@ -1,6 +1,6 @@
 # Design Principles
 
-This page records the layout rules Rezi follows in the current alpha line.
+This page records the layout rules Rezi follows in the current beta line.
 
 ---
 
@@ -22,7 +22,7 @@ Use the first mechanism that fits the need:
   - `visibilityConstraints`, `widthConstraints`, `heightConstraints`, `spaceConstraints`, `groupConstraints`, `conditionalConstraints`
 - Raw `expr("...")` is the escape hatch for custom rules.
 - `%` size strings and responsive-map layout constraints (`{ sm, md, ... }`) are not part of the public API.
-- `grid.columns` accepts `number | string` in alpha; `columns: expr(...)` is invalid.
+- `grid.columns` accepts `number | string` in the beta line; `columns: expr(...)` is invalid.
 - Layout-driven visibility uses `display: ...` constraints; business logic visibility uses `show(...)`/`when(...)`/`maybe(...)`/`match(...)`.
 
 ---

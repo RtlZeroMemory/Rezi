@@ -17,12 +17,12 @@ Constraint expressions are accepted on **supported layout props** such as:
 - `flexBasis`
 - `display` (layout-driven visibility)
 
-Notably, `grid.columns` is **not** expression-enabled in the alpha contract:
+Notably, `grid.columns` is **not** expression-enabled in the current beta contract:
 
 ```ts
 ui.grid({ columns: 3 }, children)              // ok
 ui.grid({ columns: "14 auto 1fr" }, children) // ok
-ui.grid({ columns: expr("...") }, children)   // invalid in alpha
+ui.grid({ columns: expr("...") }, children)   // invalid in the beta line
 ```
 
 ---
