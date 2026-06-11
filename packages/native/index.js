@@ -4,6 +4,7 @@ export const {
   engineCreate,
   engineDestroy,
   engineSubmitDrawlist,
+  engineCommitScrollback,
   enginePresent,
   enginePollEvents,
   enginePostUserEvent,

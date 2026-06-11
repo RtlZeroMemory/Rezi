@@ -52,6 +52,7 @@ import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfi
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { compileTheme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
+import type { VNode } from "../widgets/types.js";
 import {
   type InternalRuntimeBreadcrumbHooks,
   createRuntimeBreadcrumbHelpers,
@@ -77,6 +78,7 @@ import { computeKeybindingsEnabled, createAppKeybindingHelpers } from "./createA
 import { type ThemeTransitionState, createRenderLoop } from "./createApp/renderLoop.js";
 import { createRunSignalController, readProcessLike } from "./createApp/runSignals.js";
 import type { TopLevelViewError } from "./createApp/topLevelViewError.js";
+import { renderViewForScrollback } from "./printAbove.js";
 import { RawRenderer } from "./rawRenderer.js";
 import type {
   RuntimeBreadcrumbAction,
@@ -1012,6 +1014,40 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           );
         },
       );
+    },
+
+    async printAbove(view: VNode, printOpts?: Readonly<{ rows?: number }>): Promise<void> {
+      guards.assertOperational("printAbove");
+      sm.assertOneOf(["Running"], "printAbove: app must be running");
+      const commitFn = backend.commitScrollback?.bind(backend);
+      if (commitFn === undefined) {
+        guards.throwCode(
+          "ZRUI_BACKEND_ERROR",
+          "printAbove: backend has no scrollback-commit support (inline screen mode required)",
+        );
+        return;
+      }
+      const cols = viewport?.cols;
+      if (cols === undefined || cols < 1) {
+        guards.throwCode("ZRUI_INVALID_STATE", "printAbove: viewport size not known yet");
+        return;
+      }
+      const rendered = renderViewForScrollback(view, cols, theme, printOpts?.rows);
+      await commitFn(rendered.bytes, rendered.rows);
+    },
+
+    async setInlineRows(rows: number): Promise<void> {
+      guards.assertOperational("setInlineRows");
+      sm.assertOneOf(["Running"], "setInlineRows: app must be running");
+      const setFn = backend.setInlineRows?.bind(backend);
+      if (setFn === undefined) {
+        guards.throwCode(
+          "ZRUI_BACKEND_ERROR",
+          "setInlineRows: backend has no inline screen-mode support",
+        );
+        return;
+      }
+      await setFn(rows);
     },
 
     dispose(): void {

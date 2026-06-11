@@ -28,6 +28,12 @@ extern "C" {
 */
 #define ZR_INLINE_ROWS_MAX (1024u)
 
+/* Maximum rows for one engine_commit_scrollback() call. */
+#define ZR_COMMIT_ROWS_MAX (1024u)
+
+/* Maximum total staged scrollback-commit rows awaiting the next present. */
+#define ZR_COMMIT_PENDING_ROWS_MAX (4096u)
+
 /*
   Engine creation config.
 

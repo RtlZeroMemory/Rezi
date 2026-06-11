@@ -159,7 +159,7 @@ Practical defaults:
 - Do not hand-edit generated drawlist writers.
 - Prefer semantic widgets and recipe-driven styling over manual status rendering.
 - Prefer `ui.virtualList` for large collections.
-- Screen modes: `config.screen = { mode: "alt" | "inline", inlineRows }` selects alt-screen vs inline presentation (docs/guide/screen-modes.md). Distinct from `executionMode: "inline"` (engine-on-main-thread).
+- Screen modes: `config.screen = { mode: "alt" | "inline", inlineRows }` selects alt-screen vs inline presentation (docs/guide/screen-modes.md). Distinct from `executionMode: "inline"` (engine-on-main-thread). Inline apps can `app.printAbove(view)` (commit content into scrollback) and `app.setInlineRows(n)` (runtime region height).
 
 ## Skills
 

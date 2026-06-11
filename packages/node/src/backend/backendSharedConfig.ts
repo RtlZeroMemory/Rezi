@@ -115,6 +115,61 @@ export function mergeScreenIntoNativeConfig(
   });
 }
 
+/* Create-time-only engine config keys stripped for runtime updates. */
+const RUNTIME_STRIPPED_KEYS: readonly string[] = [
+  "requestedEngineAbiMajor",
+  "requested_engine_abi_major",
+  "requestedEngineAbiMinor",
+  "requested_engine_abi_minor",
+  "requestedEngineAbiPatch",
+  "requested_engine_abi_patch",
+  "requestedDrawlistVersion",
+  "requested_drawlist_version",
+  "requestedEventBatchVersion",
+  "requested_event_batch_version",
+];
+
+/**
+ * Derive the engine runtime-config baseline from a create config.
+
+ * Why: engine_set_config validates the full runtime surface and requires the
+ * platform sub-config to match creation exactly, so runtime updates (e.g.
+ * inline viewport height) must resend the created limits/plat/toggles with
+ * only the changed key replaced.
+ */
+export function deriveRuntimeConfigBase(
+  createConfig: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(createConfig)) {
+    if (RUNTIME_STRIPPED_KEYS.includes(key)) continue;
+    out[key] = value;
+  }
+  return Object.freeze(out);
+}
+
+/** True when the merged native config selects inline screen mode. */
+export function isInlineScreenNativeConfig(
+  nativeConfig: Readonly<Record<string, unknown>>,
+): boolean {
+  // biome-ignore lint/complexity/useLiteralKeys: bracket access is required by noPropertyAccessFromIndexSignature.
+  const platValue = nativeConfig["plat"];
+  if (!isPlainObject(platValue)) return false;
+  const plat = platValue as Readonly<{ screenMode?: unknown; screen_mode?: unknown }>;
+  const mode = plat.screenMode ?? plat.screen_mode;
+  return mode === NATIVE_SCREEN_MODE_INLINE;
+}
+
+/** Validate a runtime inline viewport height request. */
+export function validateInlineRowsOrThrow(rows: number): void {
+  if (!Number.isInteger(rows) || rows < 1 || rows > INLINE_ROWS_MAX) {
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `setInlineRows: rows must be an integer in [1, ${String(INLINE_ROWS_MAX)}]`,
+    );
+  }
+}
+
 export function parsePositiveIntOr(n: unknown, fallback: number): number {
   if (typeof n !== "number") return fallback;
   if (!Number.isFinite(n)) return fallback;

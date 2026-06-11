@@ -40,6 +40,7 @@ export type NativeApi = Readonly<{
   engineCreate: (config?: object | null) => number;
   engineDestroy: (engineId: number) => void;
   engineSubmitDrawlist: (engineId: number, drawlist: Uint8Array) => number;
+  engineCommitScrollback?: (engineId: number, drawlist: Uint8Array, rows: number) => number;
   enginePresent: (engineId: number) => number;
   enginePollEvents: (engineId: number, timeoutMs: number, out: Uint8Array) => number;
   enginePostUserEvent: (engineId: number, tag: number, payload: Uint8Array) => number;

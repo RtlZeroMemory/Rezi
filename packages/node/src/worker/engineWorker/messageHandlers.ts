@@ -11,6 +11,7 @@ import {
   FRAME_SAB_SLOT_STATE_READY,
   FRAME_TRANSPORT_SAB_V1,
   FRAME_TRANSPORT_TRANSFER_V1,
+  type MainToWorkerCommitScrollbackMessage,
   type MainToWorkerDebugDisableMessage,
   type MainToWorkerDebugEnableMessage,
   type MainToWorkerDebugExportMessage,
@@ -418,6 +419,34 @@ export function handleEventsAckMessage(
 ): void {
   if (ctx.eventState.discardBuffer === null) return;
   ctx.eventState.eventPool.push(msg.buffer);
+}
+
+export function handleCommitScrollbackMessage(
+  msg: MainToWorkerCommitScrollbackMessage,
+  ctx: EngineWorkerMessageContext,
+): void {
+  let rc = -1;
+  if (ctx.runtimeState.engineId !== null) {
+    const commit = ctx.native.engineCommitScrollback;
+    if (commit === undefined) {
+      /* Older native addon without the entry point: report unsupported. */
+      rc = -4;
+    } else {
+      try {
+        const view = new Uint8Array(msg.bytes, 0, msg.byteLen);
+        rc = commit(ctx.runtimeState.engineId, view, msg.rows);
+      } catch (err) {
+        ctx.fatal(
+          "engineCommitScrollback",
+          -1,
+          `engine_commit_scrollback threw: ${ctx.safeDetail(err)}`,
+        );
+        ctx.runtimeState.running = false;
+        return;
+      }
+    }
+  }
+  ctx.postToMain({ type: "commitResult", rc });
 }
 
 export function handleGetCapsMessage(

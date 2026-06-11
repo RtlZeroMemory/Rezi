@@ -106,6 +106,13 @@ export type MainToWorkerGetCapsMessage = Readonly<{
   type: "getCaps";
 }>;
 
+export type MainToWorkerCommitScrollbackMessage = Readonly<{
+  type: "commitScrollback";
+  bytes: ArrayBuffer;
+  byteLen: number;
+  rows: number;
+}>;
+
 // =============================================================================
 // Debug Protocol Messages (Main -> Worker)
 // =============================================================================
@@ -180,6 +187,7 @@ export type MainToWorkerMessage =
   | MainToWorkerEventsAckMessage
   | MainToWorkerShutdownMessage
   | MainToWorkerGetCapsMessage
+  | MainToWorkerCommitScrollbackMessage
   | MainToWorkerDebugEnableMessage
   | MainToWorkerDebugDisableMessage
   | MainToWorkerDebugQueryMessage
@@ -222,6 +230,11 @@ export type WorkerToMainFatalMessage = Readonly<{
 
 export type WorkerToMainShutdownCompleteMessage = Readonly<{
   type: "shutdownComplete";
+}>;
+
+export type WorkerToMainCommitResultMessage = Readonly<{
+  type: "commitResult";
+  rc: number;
 }>;
 
 export type WorkerToMainCapsMessage = Readonly<{
@@ -332,6 +345,7 @@ export type WorkerToMainMessage =
   | WorkerToMainFatalMessage
   | WorkerToMainShutdownCompleteMessage
   | WorkerToMainCapsMessage
+  | WorkerToMainCommitResultMessage
   | WorkerToMainDebugEnableResultMessage
   | WorkerToMainDebugDisableResultMessage
   | WorkerToMainDebugQueryResultMessage

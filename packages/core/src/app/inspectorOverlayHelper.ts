@@ -247,6 +247,12 @@ export function createAppWithInspectorOverlay<S>(
     replaceRoutes(routes: readonly RouteDefinition<S>[]): void {
       app.replaceRoutes(routes);
     },
+    printAbove(view, opts) {
+      return app.printAbove(view, opts);
+    },
+    setInlineRows(rows: number) {
+      return app.setInlineRows(rows);
+    },
     draw(fn: DrawFn): void {
       app.draw(fn);
     },

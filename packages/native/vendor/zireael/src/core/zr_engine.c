@@ -42,6 +42,8 @@ enum {
   ZR_ENGINE_DETECT_PASSTHROUGH_CAP = 4096u,
   ZR_ENGINE_PASTE_MARKER_LEN = 6u,
   ZR_ENGINE_PASTE_IDLE_FLUSH_POLLS = 4u,
+  /* Maximum number of staged scrollback-commit blocks awaiting present. */
+  ZR_ENGINE_COMMIT_PENDING_MAX = 32u,
 };
 
 static const uint8_t ZR_ENGINE_PASTE_BEGIN[] = "\x1b[200~";
@@ -94,6 +96,15 @@ struct zr_engine_t { /* NOLINT(clang-analyzer-optin.performance.Padding): keep s
   /* --- Persistent drawlist resources (DEF_* and FREE_* command state) --- */
   zr_dl_resources_t dl_resources_next;
   zr_dl_resources_t dl_resources_stage;
+
+  /*
+    Staged scrollback-commit blocks (INLINE mode), emitted FIFO by the next
+    successful present. Each entry owns an isolated framebuffer so committed
+    hyperlink tables never alias live-region state.
+  */
+  zr_fb_t commit_pending[ZR_ENGINE_COMMIT_PENDING_MAX];
+  uint32_t commit_pending_count;
+  uint32_t commit_pending_rows_total;
 
   /* --- Output buffer (single flush per present) --- */
   uint8_t* out_buf;
@@ -1481,11 +1492,24 @@ static void zr_engine_wait_posts_drained(zr_engine_t* e) {
   }
 }
 
+/* Release all staged scrollback-commit blocks. */
+static void zr_engine_commit_pending_release(zr_engine_t* e) {
+  if (!e) {
+    return;
+  }
+  for (uint32_t i = 0u; i < e->commit_pending_count; i++) {
+    zr_fb_release(&e->commit_pending[i]);
+  }
+  e->commit_pending_count = 0u;
+  e->commit_pending_rows_total = 0u;
+}
+
 static void zr_engine_release_heap_state(zr_engine_t* e) {
   if (!e) {
     return;
   }
 
+  zr_engine_commit_pending_release(e);
   zr_fb_release(&e->fb_prev);
   zr_fb_release(&e->fb_next);
   zr_fb_release(&e->fb_stage);
@@ -2097,6 +2121,93 @@ zr_result_t engine_set_config(zr_engine_t* e, const zr_engine_runtime_config_t* 
 cleanup:
   zr_engine_set_config_release_resources(&res);
   return rc;
+}
+
+/*
+  Validate one scrollback-commit drawlist and stage its rendered rows.
+
+  Why: Executing into an isolated framebuffer at submit time keeps the
+  no-partial-effects contract (either the block stages fully or nothing
+  changes) and lets present emission stay allocation-free.
+*/
+static zr_result_t zr_engine_commit_execute_block(zr_engine_t* e, const zr_dl_view_t* v, uint32_t rows,
+                                                  zr_fb_t* out_fb) {
+  zr_dl_resources_t resources;
+  zr_image_frame_t image_frame;
+  zr_cursor_state_t cursor = zr_engine_cursor_default();
+  zr_blit_caps_t blit_caps;
+
+  zr_result_t rc = zr_fb_init(out_fb, e->fb_next.cols, rows);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  rc = zr_fb_clear(out_fb, NULL);
+  if (rc != ZR_OK) {
+    zr_fb_release(out_fb);
+    return rc;
+  }
+
+  /* Transient snapshot: commit drawlists may read persistent resources but
+     their DEF/FREE resource commands effects are discarded after staging. */
+  zr_dl_resources_init(&resources);
+  rc = zr_dl_resources_clone(&resources, &e->dl_resources_next);
+  if (rc != ZR_OK) {
+    zr_fb_release(out_fb);
+    return rc;
+  }
+  zr_image_frame_init(&image_frame);
+
+  zr_engine_build_blit_caps(e, &blit_caps);
+  rc = zr_dl_execute(v, out_fb, &e->cfg_runtime.limits, e->cfg_runtime.tab_width, e->cfg_runtime.width_policy,
+                     &blit_caps, &e->term_profile, &image_frame, &resources, &cursor);
+
+  /* Inline mode suppresses image protocols, so nothing should stage; any
+     staged image commands are dropped with the transient frame either way. */
+  zr_image_frame_release(&image_frame);
+  zr_dl_resources_release(&resources);
+  if (rc != ZR_OK) {
+    zr_fb_release(out_fb);
+    return rc;
+  }
+  return ZR_OK;
+}
+
+zr_result_t engine_commit_scrollback(zr_engine_t* e, const uint8_t* bytes, int bytes_len, uint32_t rows) {
+  if (!e || !bytes || bytes_len < 0) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (e->cfg_runtime.plat.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    return ZR_ERR_UNSUPPORTED;
+  }
+  if (rows < 1u || rows > ZR_COMMIT_ROWS_MAX) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (e->commit_pending_count >= (uint32_t)ZR_ENGINE_COMMIT_PENDING_MAX) {
+    return ZR_ERR_LIMIT;
+  }
+  if (e->commit_pending_rows_total + rows > ZR_COMMIT_PENDING_ROWS_MAX) {
+    return ZR_ERR_LIMIT;
+  }
+
+  zr_dl_view_t v;
+  zr_result_t rc = zr_dl_validate(bytes, (size_t)bytes_len, &e->cfg_runtime.limits, &v);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  if (v.hdr.version != e->cfg_create.requested_drawlist_version) {
+    return ZR_ERR_UNSUPPORTED;
+  }
+
+  zr_fb_t block = {0};
+  rc = zr_engine_commit_execute_block(e, &v, rows, &block);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+
+  e->commit_pending[e->commit_pending_count] = block;
+  e->commit_pending_count++;
+  e->commit_pending_rows_total += rows;
+  return ZR_OK;
 }
 
 /* --- Debug Trace API --- */

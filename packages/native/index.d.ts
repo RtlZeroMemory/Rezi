@@ -81,6 +81,11 @@ export interface TerminalCaps {
 export declare function engineCreate(config?: object | undefined | null): number;
 export declare function engineDestroy(engineId: number): void;
 export declare function engineSubmitDrawlist(engineId: number, drawlist: Uint8Array): number;
+export declare function engineCommitScrollback(
+  engineId: number,
+  drawlist: Uint8Array,
+  rows: number,
+): number;
 export declare function enginePresent(engineId: number): number;
 export declare function enginePollEvents(
   engineId: number,
