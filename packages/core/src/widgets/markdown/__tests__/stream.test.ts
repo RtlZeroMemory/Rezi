@@ -27,7 +27,9 @@ const KITCHEN_SINK = [
 ].join("\n");
 
 function renderText(vnode: Parameters<ReturnType<typeof createTestRenderer>["render"]>[0]): string {
-  return createTestRenderer({ viewport: { cols: 44, rows: 36 } }).render(vnode).toText();
+  return createTestRenderer({ viewport: { cols: 44, rows: 36 } })
+    .render(vnode)
+    .toText();
 }
 
 describe("createMarkdownStream", () => {

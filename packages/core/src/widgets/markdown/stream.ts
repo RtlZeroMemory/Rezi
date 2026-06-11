@@ -75,11 +75,7 @@ export function createMarkdownStream(options: MarkdownStreamOptions = {}): Markd
     pendingCR = text.endsWith("\r");
     if (pendingCR) text = text.slice(0, -1);
     if (text.length === 0) return;
-    const normalized = text
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n")
-      .split(NUL)
-      .join("�");
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split(NUL).join("�");
     const parts = normalized.split("\n");
     lines[lines.length - 1] += parts[0] ?? "";
     for (let p = 1; p < parts.length; p++) lines.push(parts[p] ?? "");
