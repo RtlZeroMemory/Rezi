@@ -21,6 +21,14 @@ extern "C" {
 #include <stdint.h>
 
 /*
+  Maximum requested inline viewport height in rows.
+
+  Why: Bounds engine framebuffer allocations deterministically; the effective
+  viewport is additionally clamped to the live terminal height every resize.
+*/
+#define ZR_INLINE_ROWS_MAX (1024u)
+
+/*
   Engine creation config.
 
   Ownership:
@@ -61,6 +69,16 @@ typedef struct zr_engine_config_t {
   /* --- Terminal capability override policy --- */
   zr_terminal_cap_flags_t cap_force_flags;    /* force ON for listed caps */
   zr_terminal_cap_flags_t cap_suppress_flags; /* force OFF for listed caps */
+
+  /*
+    Requested inline viewport height in rows (plat.screen_mode == INLINE only).
+
+    Contract:
+      - ALT mode: must be 0.
+      - INLINE mode: must be in [1, ZR_INLINE_ROWS_MAX]; the effective
+        viewport height is min(inline_rows, terminal rows) at any moment.
+  */
+  uint32_t inline_rows;
 } zr_engine_config_t;
 
 /*
@@ -85,6 +103,13 @@ typedef struct zr_engine_runtime_config_t {
 
   zr_terminal_cap_flags_t cap_force_flags;
   zr_terminal_cap_flags_t cap_suppress_flags;
+
+  /*
+    Requested inline viewport height in rows (INLINE mode only; see
+    zr_engine_config_t.inline_rows). Changing it at runtime resizes the
+    engine framebuffers and enqueues a ZR_EV_RESIZE event.
+  */
+  uint32_t inline_rows;
 } zr_engine_runtime_config_t;
 
 /* Return deterministic default config values suitable for initial integration. */

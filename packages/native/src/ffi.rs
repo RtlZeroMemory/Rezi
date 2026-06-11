@@ -22,6 +22,9 @@ pub(crate) struct zr_limits_t {
     pub(crate) diff_max_damage_rects: u32,
 }
 
+pub(crate) const ZR_SCREEN_MODE_ALT: u8 = 0;
+pub(crate) const ZR_SCREEN_MODE_INLINE: u8 = 1;
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub(crate) struct plat_config_t {
@@ -30,7 +33,8 @@ pub(crate) struct plat_config_t {
     pub(crate) enable_bracketed_paste: u8,
     pub(crate) enable_focus_events: u8,
     pub(crate) enable_osc52: u8,
-    pub(crate) _pad: [u8; 3],
+    pub(crate) screen_mode: u8,
+    pub(crate) _pad: [u8; 2],
 }
 
 #[repr(C)]
@@ -52,6 +56,7 @@ pub(crate) struct zr_engine_config_t {
     pub(crate) wait_for_output_drain: u8,
     pub(crate) cap_force_flags: u32,
     pub(crate) cap_suppress_flags: u32,
+    pub(crate) inline_rows: u32,
 }
 
 #[repr(C)]
@@ -68,6 +73,7 @@ pub(crate) struct zr_engine_runtime_config_t {
     pub(crate) wait_for_output_drain: u8,
     pub(crate) cap_force_flags: u32,
     pub(crate) cap_suppress_flags: u32,
+    pub(crate) inline_rows: u32,
 }
 
 #[repr(C)]
@@ -224,6 +230,9 @@ pub(crate) struct zr_term_state_t {
     pub(crate) cursor_shape: u8,
     pub(crate) cursor_blink: u8,
     pub(crate) flags: u8,
+    pub(crate) screen_mode: u8,
+    pub(crate) _pad0: [u8; 3],
+    pub(crate) inline_rows_claimed: u32,
     pub(crate) style: zr_style_t,
 }
 

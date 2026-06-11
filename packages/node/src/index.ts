@@ -10,6 +10,7 @@ import {
 import {
   type NodeBackend,
   type NodeBackendConfig,
+  type NodeBackendScreenConfig,
   createNodeBackendInternal,
 } from "./backend/nodeBackend.js";
 import { type HotStateReloadController, createHotStateReload } from "./dev/hotStateReload.js";
@@ -21,7 +22,7 @@ import {
 import { createReproRecorder } from "./repro/index.js";
 import { createNodeTailSource } from "./streams/tail.js";
 
-export type { NodeBackendConfig };
+export type { NodeBackendConfig, NodeBackendScreenConfig };
 export type { NodeBackend };
 export type {
   HotStateReloadBaseOptions,
@@ -229,6 +230,7 @@ function toBackendConfig(config: NodeAppConfig | undefined): NodeBackendConfig {
       ? { frameSabSlotBytes: config.frameSabSlotBytes }
       : {}),
     ...(config.nativeConfig !== undefined ? { nativeConfig: config.nativeConfig } : {}),
+    ...(config.screen !== undefined ? { screen: config.screen } : {}),
   };
 }
 

@@ -25,6 +25,17 @@ typedef uint8_t plat_color_mode_t;
 #define PLAT_COLOR_MODE_RGB ((plat_color_mode_t)3u)
 
 /*
+  zr_screen_mode_t:
+    - Screen buffer policy selected at engine creation (immutable at runtime).
+    - ALT: switch to the alternate screen buffer (full-screen apps).
+    - INLINE: stay on the primary screen and render a bounded region at the
+      current scroll position, preserving terminal scrollback above it.
+*/
+typedef uint8_t zr_screen_mode_t;
+#define ZR_SCREEN_MODE_ALT ((zr_screen_mode_t)0u)
+#define ZR_SCREEN_MODE_INLINE ((zr_screen_mode_t)1u)
+
+/*
   plat_size_t:
     - Terminal size in character cells.
 */
@@ -63,6 +74,10 @@ typedef struct plat_caps_t {
 /*
   plat_config_t:
     - Core-provided desired platform behavior.
+
+  Notes:
+    - screen_mode selects ALT vs INLINE buffer policy (zr_screen_mode_t) and
+      is create-time-only; engine_set_config() rejects platform changes.
 */
 typedef struct plat_config_t {
   plat_color_mode_t requested_color_mode;
@@ -70,7 +85,8 @@ typedef struct plat_config_t {
   uint8_t enable_bracketed_paste;
   uint8_t enable_focus_events;
   uint8_t enable_osc52;
-  uint8_t _pad[3];
+  uint8_t screen_mode;
+  uint8_t _pad[2];
 } plat_config_t;
 
 #ifdef __cplusplus

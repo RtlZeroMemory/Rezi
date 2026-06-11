@@ -167,6 +167,29 @@ enum {
 /* Forward declaration for cleanup helper. */
 static void zr_engine_debug_free(zr_engine_t* e);
 static zr_result_t zr_engine_sync_kitty_keyboard(zr_engine_t* e, const zr_terminal_profile_t* profile);
+static bool zr_engine_is_inline_mode(const zr_engine_t* e);
+static uint32_t zr_engine_viewport_rows(const zr_engine_t* e, uint32_t inline_rows, uint32_t plat_rows);
+
+static size_t zr_engine_u32_dec_len(uint32_t v) {
+  size_t len = 1u;
+  while (v >= 10u) {
+    v /= 10u;
+    len++;
+  }
+  return len;
+}
+
+static void zr_engine_write_u32_dec(uint8_t* dst, size_t len, uint32_t v) {
+  if (!dst || len == 0u) {
+    return;
+  }
+  size_t i = len;
+  while (i != 0u) {
+    i--;
+    dst[i] = (uint8_t)((uint32_t)'0' + (v % 10u));
+    v /= 10u;
+  }
+}
 
 static const uint8_t ZR_SYNC_BEGIN[] = "\x1b[?2026h";
 static const uint8_t ZR_SYNC_END[] = "\x1b[?2026l";
@@ -203,11 +226,53 @@ static void zr_engine_restore_sync_assert_hook_locked(void) {
   zr_assert_clear_cleanup_hook(zr_engine_restore_from_assert);
 }
 
+/*
+  Park the cursor on a fresh line below the inline region before leaving.
+
+  Why: Inline mode keeps the final frame visible in scrollback. Without this,
+  the shell prompt would resume inside the rendered region and overwrite it.
+*/
+static void zr_engine_inline_farewell(zr_engine_t* e) {
+  enum {
+    /* CR + CSI + 10 digits + final + LF upper bound. */
+    ZR_INLINE_FAREWELL_CAP = 16u,
+  };
+
+  if (!zr_engine_is_inline_mode(e) || e->term_state.inline_rows_claimed == 0u) {
+    return;
+  }
+
+  const uint32_t claimed = e->term_state.inline_rows_claimed;
+  uint32_t row = e->term_state.cursor_y;
+  if (row >= claimed) {
+    row = claimed - 1u;
+  }
+  const uint32_t down = (claimed - 1u) - row;
+
+  uint8_t buf[ZR_INLINE_FAREWELL_CAP];
+  size_t at = 0u;
+  buf[at++] = (uint8_t)'\r';
+  if (down != 0u) {
+    const size_t digits = zr_engine_u32_dec_len(down);
+    if (at + digits + 3u > sizeof(buf)) {
+      return;
+    }
+    buf[at++] = 0x1Bu;
+    buf[at++] = (uint8_t)'[';
+    zr_engine_write_u32_dec(buf + at, digits, down);
+    at += digits;
+    buf[at++] = (uint8_t)'B';
+  }
+  buf[at++] = (uint8_t)'\n';
+  (void)plat_write_output(e->plat, buf, (int32_t)at);
+}
+
 static void zr_engine_restore_platform_state(zr_engine_t* e) {
   if (!e || !e->plat) {
     return;
   }
 
+  zr_engine_inline_farewell(e);
   (void)zr_engine_sync_kitty_keyboard(e, &(zr_terminal_profile_t){0});
   (void)plat_leave_raw(e->plat);
 }
@@ -652,7 +717,15 @@ static zr_result_t zr_engine_try_handle_resize(zr_engine_t* e, uint32_t time_ms)
     return ZR_OK;
   }
 
-  rc = zr_engine_resize_framebuffers(e, sz.cols, sz.rows);
+  /*
+    ZR_EV_RESIZE reports the presentable surface, not the raw terminal size.
+
+    Why: Wrappers lay out against what they can draw. In ALT mode the surface
+    is the terminal; in INLINE mode it is the viewport clamped to the live
+    terminal height.
+  */
+  const uint32_t viewport_rows = zr_engine_viewport_rows(e, e->cfg_runtime.inline_rows, sz.rows);
+  rc = zr_engine_resize_framebuffers(e, sz.cols, viewport_rows);
   if (rc != ZR_OK) {
     return rc;
   }
@@ -664,7 +737,7 @@ static zr_result_t zr_engine_try_handle_resize(zr_engine_t* e, uint32_t time_ms)
   ev.time_ms = time_ms;
   ev.flags = 0u;
   ev.u.resize.cols = sz.cols;
-  ev.u.resize.rows = sz.rows;
+  ev.u.resize.rows = viewport_rows;
   ev.u.resize.reserved0 = 0u;
   ev.u.resize.reserved1 = 0u;
   (void)zr_event_queue_push(&e->evq, &ev);
@@ -1028,6 +1101,7 @@ static void zr_engine_runtime_from_create_cfg(zr_engine_t* e, const zr_engine_co
   e->cfg_runtime.wait_for_output_drain = cfg->wait_for_output_drain;
   e->cfg_runtime.cap_force_flags = cfg->cap_force_flags;
   e->cfg_runtime.cap_suppress_flags = cfg->cap_suppress_flags;
+  e->cfg_runtime.inline_rows = cfg->inline_rows;
 }
 
 /* Seed the metrics snapshot with negotiated ABI versions from create config. */
@@ -1169,13 +1243,42 @@ static zr_result_t zr_engine_sync_kitty_keyboard(zr_engine_t* e, const zr_termin
   return ZR_OK;
 }
 
+static bool zr_engine_is_inline_mode(const zr_engine_t* e) {
+  return e && e->cfg_runtime.plat.screen_mode == ZR_SCREEN_MODE_INLINE;
+}
+
+/*
+  Capability bits that must stay suppressed in inline screen mode.
+
+  Why: Protocol image placement and DECSTBM scroll moves address absolute
+  screen rows, which inline mode cannot know (no CPR queries by design).
+  Suppressing the capabilities routes DRAW_IMAGE through the sub-cell blitter
+  fallback and disables scroll-region optimization via existing gates, and
+  keeps engine_get_caps() truthful about effective behavior.
+*/
+static zr_terminal_cap_flags_t zr_engine_mode_suppress_flags(const zr_engine_t* e) {
+  if (!zr_engine_is_inline_mode(e)) {
+    return 0u;
+  }
+  return ZR_TERM_CAP_SIXEL | ZR_TERM_CAP_KITTY_GRAPHICS | ZR_TERM_CAP_ITERM2_IMAGES | ZR_TERM_CAP_SCROLL_REGION;
+}
+
+/* Effective viewport height: inline mode is clamped to the live terminal. */
+static uint32_t zr_engine_viewport_rows(const zr_engine_t* e, uint32_t inline_rows, uint32_t plat_rows) {
+  if (!zr_engine_is_inline_mode(e) || inline_rows == 0u) {
+    return plat_rows;
+  }
+  return (inline_rows < plat_rows) ? inline_rows : plat_rows;
+}
+
 /* Recompute effective runtime caps from base detection + force/suppress flags. */
 static void zr_engine_apply_cap_overrides(zr_engine_t* e) {
   if (!e) {
     return;
   }
   zr_detect_apply_overrides(&e->term_profile_base, &e->caps_base, e->cfg_runtime.cap_force_flags,
-                            e->cfg_runtime.cap_suppress_flags, &e->term_profile, &e->caps);
+                            e->cfg_runtime.cap_suppress_flags | zr_engine_mode_suppress_flags(e), &e->term_profile,
+                            &e->caps);
 }
 
 /*
@@ -1233,6 +1336,31 @@ static zr_result_t zr_engine_init_platform(zr_engine_t* e) {
   return plat_get_size(e->plat, &e->size);
 }
 
+/*
+  Establish conservative initial terminal assumptions after entering raw mode.
+
+  Why: The platform enter sequences hide the cursor. Mark cursor visibility
+  as known so an empty present can't fail due to forced cursor-control bytes
+  under small out_max_bytes_per_frame values.
+*/
+static void zr_engine_init_term_state_assumptions(zr_engine_t* e) {
+  if (!e) {
+    return;
+  }
+
+  e->term_state.cursor_visible = 0u;
+  e->term_state.flags |= ZR_TERM_STATE_CURSOR_VIS_VALID;
+  e->term_state.screen_mode = e->cfg_runtime.plat.screen_mode;
+  if (!zr_engine_is_inline_mode(e)) {
+    /*
+      The alternate screen starts blank, matching cleared prev buffers. The
+      inline primary screen holds arbitrary shell content, so the first
+      present must establish the inline baseline (SCREEN_VALID stays unset).
+    */
+    e->term_state.flags |= ZR_TERM_STATE_SCREEN_VALID;
+  }
+}
+
 static zr_result_t zr_engine_init_runtime_state(zr_engine_t* e) {
   if (!e) {
     return ZR_ERR_INVALID_ARGUMENT;
@@ -1264,22 +1392,13 @@ static zr_result_t zr_engine_init_runtime_state(zr_engine_t* e) {
   if (e->cfg_runtime.wait_for_output_drain != 0u && e->caps.supports_output_wait_writable == 0u) {
     return ZR_ERR_UNSUPPORTED;
   }
-  rc = zr_engine_resize_framebuffers(e, e->size.cols, e->size.rows);
+  rc = zr_engine_resize_framebuffers(e, e->size.cols,
+                                     zr_engine_viewport_rows(e, e->cfg_runtime.inline_rows, e->size.rows));
   if (rc != ZR_OK) {
     return rc;
   }
 
-  /*
-    Establish conservative initial terminal assumptions after entering raw mode.
-
-    Why: The platform enter sequences hide the cursor. Mark cursor visibility
-    as known so an empty present can't fail due to forced cursor-control bytes
-    under small out_max_bytes_per_frame values.
-  */
-  e->term_state.cursor_visible = 0u;
-  e->term_state.flags |= ZR_TERM_STATE_CURSOR_VIS_VALID;
-  e->term_state.flags |= ZR_TERM_STATE_SCREEN_VALID;
-
+  zr_engine_init_term_state_assumptions(e);
   e->last_tick_ms = zr_engine_now_ms_u32();
   return ZR_OK;
 }
@@ -1294,7 +1413,7 @@ static void zr_engine_enqueue_initial_resize(zr_engine_t* e) {
   ev.time_ms = e->last_tick_ms;
   ev.flags = 0u;
   ev.u.resize.cols = e->size.cols;
-  ev.u.resize.rows = e->size.rows;
+  ev.u.resize.rows = zr_engine_viewport_rows(e, e->cfg_runtime.inline_rows, e->size.rows);
   ev.u.resize.reserved0 = 0u;
   ev.u.resize.reserved1 = 0u;
   (void)zr_event_queue_push(&e->evq, &ev);
@@ -1797,40 +1916,135 @@ static zr_result_t zr_engine_set_config_prepare_arenas(zr_engine_t* e, const zr_
   return ZR_OK;
 }
 
-static void zr_engine_set_config_commit(zr_engine_t* e, const zr_engine_runtime_config_t* cfg, bool want_out_buf,
-                                        uint8_t** out_buf_new, size_t out_cap_new, bool want_damage_rects,
-                                        zr_damage_rect_t** damage_rects_new, uint32_t damage_rect_cap_new,
-                                        bool want_arena_reinit, zr_arena_t* arena_frame_new,
-                                        zr_arena_t* arena_persistent_new) {
-  if (!e || !cfg || !out_buf_new || !damage_rects_new || !arena_frame_new || !arena_persistent_new) {
+/* Staged engine_set_config resources (allocated before any commit). */
+typedef struct zr_engine_set_config_res_t {
+  uint8_t* out_buf_new;
+  size_t out_cap_new;
+  zr_damage_rect_t* damage_rects_new;
+  uint32_t damage_rect_cap_new;
+  zr_arena_t arena_frame_new;
+  zr_arena_t arena_persistent_new;
+  bool want_out_buf;
+  bool want_damage_rects;
+  bool want_arena_reinit;
+} zr_engine_set_config_res_t;
+
+static zr_result_t zr_engine_set_config_prepare_resources(zr_engine_t* e, const zr_engine_runtime_config_t* cfg,
+                                                          zr_engine_set_config_res_t* res) {
+  if (!e || !cfg || !res) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  memset(res, 0, sizeof(*res));
+  res->out_cap_new = e->out_cap;
+  res->damage_rect_cap_new = e->damage_rect_cap;
+
+  zr_result_t rc =
+      zr_engine_set_config_prepare_out_buf(e, cfg, &res->out_buf_new, &res->out_cap_new, &res->want_out_buf);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  rc = zr_engine_set_config_prepare_damage_rects(e, cfg, &res->damage_rects_new, &res->damage_rect_cap_new,
+                                                 &res->want_damage_rects);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  return zr_engine_set_config_prepare_arenas(e, cfg, &res->arena_frame_new, &res->arena_persistent_new,
+                                             &res->want_arena_reinit);
+}
+
+/* Release staged resources that were not transferred by a commit. */
+static void zr_engine_set_config_release_resources(zr_engine_set_config_res_t* res) {
+  if (!res) {
+    return;
+  }
+  free(res->out_buf_new);
+  free(res->damage_rects_new);
+  zr_arena_release(&res->arena_frame_new);
+  zr_arena_release(&res->arena_persistent_new);
+  memset(res, 0, sizeof(*res));
+}
+
+static void zr_engine_set_config_commit(zr_engine_t* e, const zr_engine_runtime_config_t* cfg,
+                                        zr_engine_set_config_res_t* res) {
+  if (!e || !cfg || !res) {
     return;
   }
 
-  if (want_out_buf) {
+  if (res->want_out_buf) {
     free(e->out_buf);
-    e->out_buf = *out_buf_new;
-    e->out_cap = out_cap_new;
-    *out_buf_new = NULL;
+    e->out_buf = res->out_buf_new;
+    e->out_cap = res->out_cap_new;
+    res->out_buf_new = NULL;
   }
 
-  if (want_damage_rects) {
+  if (res->want_damage_rects) {
     free(e->damage_rects);
-    e->damage_rects = *damage_rects_new;
-    e->damage_rect_cap = damage_rect_cap_new;
-    *damage_rects_new = NULL;
+    e->damage_rects = res->damage_rects_new;
+    e->damage_rect_cap = res->damage_rect_cap_new;
+    res->damage_rects_new = NULL;
   }
 
-  if (want_arena_reinit) {
+  if (res->want_arena_reinit) {
     zr_arena_release(&e->arena_frame);
     zr_arena_release(&e->arena_persistent);
-    e->arena_frame = *arena_frame_new;
-    e->arena_persistent = *arena_persistent_new;
-    memset(arena_frame_new, 0, sizeof(*arena_frame_new));
-    memset(arena_persistent_new, 0, sizeof(*arena_persistent_new));
+    e->arena_frame = res->arena_frame_new;
+    e->arena_persistent = res->arena_persistent_new;
+    memset(&res->arena_frame_new, 0, sizeof(res->arena_frame_new));
+    memset(&res->arena_persistent_new, 0, sizeof(res->arena_persistent_new));
   }
 
   e->cfg_runtime = *cfg;
   zr_engine_apply_cap_overrides(e);
+}
+
+/*
+  Reject enabling wait_for_output_drain when the backend does not support it.
+
+  Why: Mirrors the engine_create() early check and prevents repeated per-frame
+  ZR_ERR_UNSUPPORTED failures from engine_present().
+*/
+static zr_result_t zr_engine_set_config_check_prospective_caps(zr_engine_t* e, const zr_engine_runtime_config_t* cfg,
+                                                               zr_terminal_profile_t* out_profile) {
+  plat_caps_t prospective_caps;
+
+  if (!e || !cfg || !out_profile) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  zr_detect_apply_overrides(&e->term_profile_base, &e->caps_base, cfg->cap_force_flags, cfg->cap_suppress_flags,
+                            out_profile, &prospective_caps);
+  if (cfg->wait_for_output_drain != 0u && prospective_caps.supports_output_wait_writable == 0u) {
+    return ZR_ERR_UNSUPPORTED;
+  }
+  return ZR_OK;
+}
+
+/*
+  Run the inline viewport resize as the last fallible step before commit.
+
+  Why: zr_engine_resize_framebuffers() is internally atomic, so failure
+  leaves the engine consistent while success is immediately followed by the
+  infallible config swap.
+*/
+static zr_result_t zr_engine_set_config_apply_viewport(zr_engine_t* e, bool viewport_changed,
+                                                       uint32_t viewport_rows_new) {
+  if (!e || !viewport_changed) {
+    return ZR_OK;
+  }
+  return zr_engine_resize_framebuffers(e, e->size.cols, viewport_rows_new);
+}
+
+/* Wrappers re-layout from ZR_EV_RESIZE; report the new presentable size. */
+static void zr_engine_push_viewport_resize_event(zr_engine_t* e, uint32_t viewport_rows) {
+  zr_event_t ev = {0};
+
+  if (!e) {
+    return;
+  }
+  ev.type = ZR_EV_RESIZE;
+  ev.time_ms = zr_engine_now_ms_u32();
+  ev.u.resize.cols = e->size.cols;
+  ev.u.resize.rows = viewport_rows;
+  (void)zr_event_queue_push(&e->evq, &ev);
 }
 
 /*
@@ -1846,63 +2060,42 @@ zr_result_t engine_set_config(zr_engine_t* e, const zr_engine_runtime_config_t* 
   if (rc != ZR_OK) {
     return rc;
   }
-
   if (memcmp(&cfg->plat, &e->cfg_runtime.plat, sizeof(cfg->plat)) != 0) {
     return ZR_ERR_UNSUPPORTED;
   }
 
-  /*
-    Reject enabling wait_for_output_drain when the backend does not support it.
-    This mirrors the engine_create() early check and prevents repeated per-frame
-    ZR_ERR_UNSUPPORTED failures from engine_present().
-  */
   zr_terminal_profile_t prospective_profile;
-  plat_caps_t prospective_caps;
-  zr_detect_apply_overrides(&e->term_profile_base, &e->caps_base, cfg->cap_force_flags, cfg->cap_suppress_flags,
-                            &prospective_profile, &prospective_caps);
-  if (cfg->wait_for_output_drain != 0u && prospective_caps.supports_output_wait_writable == 0u) {
-    return ZR_ERR_UNSUPPORTED;
+  rc = zr_engine_set_config_check_prospective_caps(e, cfg, &prospective_profile);
+  if (rc != ZR_OK) {
+    return rc;
   }
 
-  uint8_t* out_buf_new = NULL;
-  size_t out_cap_new = e->out_cap;
-  zr_damage_rect_t* damage_rects_new = NULL;
-  uint32_t damage_rect_cap_new = e->damage_rect_cap;
-  zr_arena_t arena_frame_new = {0};
-  zr_arena_t arena_persistent_new = {0};
+  const uint32_t viewport_rows_new = zr_engine_viewport_rows(e, cfg->inline_rows, e->size.rows);
+  const bool viewport_changed = zr_engine_is_inline_mode(e) && (viewport_rows_new != e->fb_next.rows);
 
-  bool want_out_buf = false;
-  bool want_damage_rects = false;
-  bool want_arena_reinit = false;
-
-  rc = zr_engine_set_config_prepare_out_buf(e, cfg, &out_buf_new, &out_cap_new, &want_out_buf);
+  zr_engine_set_config_res_t res = {0};
+  rc = zr_engine_set_config_prepare_resources(e, cfg, &res);
   if (rc != ZR_OK) {
     goto cleanup;
   }
-  rc = zr_engine_set_config_prepare_damage_rects(e, cfg, &damage_rects_new, &damage_rect_cap_new, &want_damage_rects);
-  if (rc != ZR_OK) {
-    goto cleanup;
-  }
-  rc = zr_engine_set_config_prepare_arenas(e, cfg, &arena_frame_new, &arena_persistent_new, &want_arena_reinit);
-  if (rc != ZR_OK) {
-    goto cleanup;
-  }
-
   rc = zr_engine_sync_kitty_keyboard(e, &prospective_profile);
+  if (rc != ZR_OK) {
+    goto cleanup;
+  }
+  rc = zr_engine_set_config_apply_viewport(e, viewport_changed, viewport_rows_new);
   if (rc != ZR_OK) {
     goto cleanup;
   }
 
   /* Commit (no partial effects): allocations succeeded; now swap in new resources. */
-  zr_engine_set_config_commit(e, cfg, want_out_buf, &out_buf_new, out_cap_new, want_damage_rects, &damage_rects_new,
-                              damage_rect_cap_new, want_arena_reinit, &arena_frame_new, &arena_persistent_new);
+  zr_engine_set_config_commit(e, cfg, &res);
+  if (viewport_changed) {
+    zr_engine_push_viewport_resize_event(e, viewport_rows_new);
+  }
   return ZR_OK;
 
 cleanup:
-  free(out_buf_new);
-  free(damage_rects_new);
-  zr_arena_release(&arena_frame_new);
-  zr_arena_release(&arena_persistent_new);
+  zr_engine_set_config_release_resources(&res);
   return rc;
 }
 

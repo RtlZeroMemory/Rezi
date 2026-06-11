@@ -1060,9 +1060,15 @@ static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
 static void zr_win32_emit_enter_sequences_best_effort(plat_t* plat) {
   /*
     Locked ordering for enter:
-      ?1049h, ?25l, ?7h, ?2004h, ?1004h, ?1000h?1002h?1003h?1006h (when enabled by config/caps)
+      ?1049h (ALT mode only), ?25l, ?7h, ?2004h, ?1004h, ?1000h?1002h?1003h?1006h
+      (when enabled by config/caps)
+
+    Why inline skips ?1049h: inline mode renders on the primary screen so the
+    session's scrollback stays visible above the region.
   */
-  (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_ALT_SCREEN_ENTER, sizeof(ZR_WIN32_SEQ_ALT_SCREEN_ENTER));
+  if (plat->cfg.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_ALT_SCREEN_ENTER, sizeof(ZR_WIN32_SEQ_ALT_SCREEN_ENTER));
+  }
   (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_CURSOR_HIDE, sizeof(ZR_WIN32_SEQ_CURSOR_HIDE));
   (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_WRAP_ENABLE, sizeof(ZR_WIN32_SEQ_WRAP_ENABLE));
 
@@ -1098,11 +1104,20 @@ static void zr_win32_emit_leave_sequences_best_effort(plat_t* plat) {
                               sizeof(ZR_WIN32_SEQ_BRACKETED_PASTE_DISABLE));
   }
 
-  (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_SCROLL_REGION_RESET, sizeof(ZR_WIN32_SEQ_SCROLL_REGION_RESET));
+  /*
+    Inline mode must not reset scroll margins or leave the alt screen:
+    the margin reset homes the cursor (the engine just parked it below the
+    region) and ?1049l would switch buffers the engine never entered.
+  */
+  if (plat->cfg.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_SCROLL_REGION_RESET, sizeof(ZR_WIN32_SEQ_SCROLL_REGION_RESET));
+  }
   (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_SGR_RESET, sizeof(ZR_WIN32_SEQ_SGR_RESET));
   (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_WRAP_ENABLE, sizeof(ZR_WIN32_SEQ_WRAP_ENABLE));
   (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_CURSOR_SHOW, sizeof(ZR_WIN32_SEQ_CURSOR_SHOW));
-  (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_ALT_SCREEN_LEAVE, sizeof(ZR_WIN32_SEQ_ALT_SCREEN_LEAVE));
+  if (plat->cfg.screen_mode != ZR_SCREEN_MODE_INLINE) {
+    (void)zr_win32_write_cstr(plat->h_out, ZR_WIN32_SEQ_ALT_SCREEN_LEAVE, sizeof(ZR_WIN32_SEQ_ALT_SCREEN_LEAVE));
+  }
 }
 
 static bool zr_win32_query_size_best_effort(HANDLE h_out, plat_size_t* inout_last_size) {

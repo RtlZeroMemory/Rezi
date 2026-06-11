@@ -19,7 +19,12 @@
 #include <stdint.h>
 
 typedef struct zr_term_state_t {
-  /* 0-based cursor position in character cells. */
+  /*
+    0-based cursor position in character cells.
+
+    Coordinate domain depends on screen_mode: absolute screen cells in ALT
+    mode, viewport-relative cells (row 0 == region top) in INLINE mode.
+  */
   uint32_t cursor_x;
   uint32_t cursor_y;
   uint8_t cursor_visible; /* 0/1 */
@@ -34,6 +39,21 @@ typedef struct zr_term_state_t {
     API/ABI surface.
   */
   uint8_t flags;
+  /*
+    Screen buffer policy for emission (zr_screen_mode_t).
+
+    Why: INLINE mode has no trustworthy absolute row origin, so the renderer
+    must position with relative motion (CR/CUU/CUD/CHA) instead of CUP and
+    claim new viewport rows with LF so the terminal scrolls naturally.
+  */
+  uint8_t screen_mode;
+  uint8_t _pad0[3];
+  /*
+    INLINE mode only: number of viewport rows already materialized on the
+    terminal (the cursor can move within [0, inline_rows_claimed) using
+    relative motion; rows at or beyond this count must be claimed with LF).
+  */
+  uint32_t inline_rows_claimed;
   zr_style_t style;
 } zr_term_state_t;
 

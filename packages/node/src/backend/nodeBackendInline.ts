@@ -39,6 +39,7 @@ import {
   DEFAULT_MAX_EVENT_BYTES,
   MAX_SAFE_EVENT_BYTES,
   MAX_SAFE_FPS_CAP,
+  mergeScreenIntoNativeConfig,
   normalizeBackendNativeConfig,
   parseBoundedPositiveIntOrThrow,
   parsePositiveIntOr,
@@ -228,7 +229,10 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
     DEFAULT_MAX_EVENT_BYTES,
     MAX_SAFE_EVENT_BYTES,
   );
-  const nativeConfig = normalizeBackendNativeConfig(cfg.nativeConfig);
+  const nativeConfig = mergeScreenIntoNativeConfig(
+    normalizeBackendNativeConfig(cfg.nativeConfig),
+    cfg.screen,
+  );
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
   const initConfigBase = {
