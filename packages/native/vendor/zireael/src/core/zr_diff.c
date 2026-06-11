@@ -2586,9 +2586,21 @@ static bool zr_emit_el0_clear_line_tail(zr_sb_t* sb) {
 
   Why: EL and any LF scroll fill use the *current* background (BCE), so the
   style must be the blank baseline before either runs. CR re-anchors column 0
-  and cancels pending autowrap from full-width rows.
+  and cancels pending autowrap from full-width rows. When the row ended on a
+  drift-capable glyph (cursor position invalidated), the cursor is first
+  re-anchored to the intended end column with absolute-column CHA so EL
+  erases from the painted edge rather than a drifted terminal column.
 */
-static zr_result_t zr_diff_commit_finish_row(zr_diff_ctx_t* ctx) {
+static zr_result_t zr_diff_commit_finish_row(zr_diff_ctx_t* ctx, uint32_t row_end_col) {
+  if (!zr_term_cursor_pos_is_valid(&ctx->ts)) {
+    if (!zr_diff_write_csi(&ctx->sb) || !zr_sb_write_u32_dec(&ctx->sb, row_end_col + 1u) ||
+        !zr_sb_write_u8(&ctx->sb, ZR_CSI_FINAL_CHA)) {
+      return ZR_ERR_LIMIT;
+    }
+    ctx->ts.cursor_x = row_end_col;
+    ctx->ts.flags |= ZR_TERM_STATE_CURSOR_POS_VALID;
+  }
+
   const zr_result_t link_rc = zr_diff_emit_link_transition(ctx, 0u);
   if (link_rc != ZR_OK) {
     return link_rc;
@@ -2644,7 +2656,7 @@ zr_result_t zr_diff_render_commit(const zr_fb_t* content, const plat_caps_t* cap
       zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
       return rc;
     }
-    rc = zr_diff_commit_finish_row(&ctx);
+    rc = zr_diff_commit_finish_row(&ctx, paint_cols);
     if (rc != ZR_OK) {
       zr_diff_zero_outputs(out_len, out_final_term_state, NULL);
       return rc;
