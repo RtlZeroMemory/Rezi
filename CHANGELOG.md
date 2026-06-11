@@ -6,6 +6,23 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-beta.1] - 2026-06-11
+
+### Changed
+
+- **project**: Promoted Rezi from alpha to beta. The core public API is recorded and diffed in CI, widget guarantees are documented as stability tiers, and remaining pre-1.0 breaking changes will be batched and documented with migration notes.
+- **testkit**: Declared Bun support (`bun >= 1.3.0`) in `engines`, matching the other runtime packages.
+
+### Added
+
+- **jsx**: Parity tests that pin the JSX component surface to the `ui.*` factory surface in both directions, so the hand-maintained wrapper layer cannot drift silently.
+
+### Documentation
+
+- **README**: Rewritten for the beta line: status and versioning policy, requirements and the prebuilt binary matrix, an architecture overview, and contribution entry points.
+- **ROADMAP**: Refreshed to reflect shipped work (Bun support, CI benchmark comparisons) and the path to 1.0.
+- **docs**: Status wording updated from pre-alpha to beta across the docs index, widget stability pages, and protocol versioning notes.
+
 ## [0.1.0-alpha.81] - 2026-06-04
 
 ### Release Infrastructure
