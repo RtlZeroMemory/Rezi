@@ -204,10 +204,6 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   };
   let initConfigResolved: EngineCreateConfig | null = null;
   const isInlineScreen = isInlineScreenNativeConfig(nativeConfig);
-  const runtimeConfigBase = deriveRuntimeConfigBase({
-    ...nativeConfig,
-    targetFps: nativeTargetFps,
-  });
 
   let worker: Worker | null = null;
   let disposed = false;
@@ -888,6 +884,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       if (!isInlineScreen) {
         throw new ZrUiError("ZRUI_BACKEND_ERROR", 'commitScrollback requires screen.mode "inline"');
       }
+      validateInlineRowsOrThrow(rows, "commitScrollback: rows");
       const buf = new ArrayBuffer(drawlist.byteLength);
       copyInto(buf, drawlist);
       const d = deferred<void>();
@@ -904,8 +901,13 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       if (!isInlineScreen) {
         throw new ZrUiError("ZRUI_BACKEND_ERROR", 'setInlineRows requires screen.mode "inline"');
       }
-      validateInlineRowsOrThrow(rows);
-      send({ type: "setConfig", config: { ...runtimeConfigBase, inlineRows: rows } });
+      validateInlineRowsOrThrow(rows, "setInlineRows: rows");
+      if (initConfigResolved === null) {
+        throw new Error("NodeBackend: not started");
+      }
+      /* Resend the resolved create surface (width policy settles at start). */
+      const runtimeBase = deriveRuntimeConfigBase(initConfigResolved);
+      send({ type: "setConfig", config: { ...runtimeBase, inlineRows: rows } });
     },
 
     async getCaps(): Promise<TerminalCaps> {

@@ -127,6 +127,10 @@ const RUNTIME_STRIPPED_KEYS: readonly string[] = [
   "requested_drawlist_version",
   "requestedEventBatchVersion",
   "requested_event_batch_version",
+  /* Node-transport keys (worker init only; unknown to engine_set_config). */
+  "fpsCap",
+  "maxEventBytes",
+  "frameTransport",
 ];
 
 /**
@@ -160,12 +164,12 @@ export function isInlineScreenNativeConfig(
   return mode === NATIVE_SCREEN_MODE_INLINE;
 }
 
-/** Validate a runtime inline viewport height request. */
-export function validateInlineRowsOrThrow(rows: number): void {
+/** Validate a rows argument for inline screen-mode APIs. */
+export function validateInlineRowsOrThrow(rows: number, label = "rows"): void {
   if (!Number.isInteger(rows) || rows < 1 || rows > INLINE_ROWS_MAX) {
     throw new ZrUiError(
       "ZRUI_INVALID_PROPS",
-      `setInlineRows: rows must be an integer in [1, ${String(INLINE_ROWS_MAX)}]`,
+      `${label} must be an integer in [1, ${String(INLINE_ROWS_MAX)}]`,
     );
   }
 }

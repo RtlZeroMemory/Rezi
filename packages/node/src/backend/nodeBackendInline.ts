@@ -239,10 +239,6 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
   );
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
   const isInlineScreen = isInlineScreenNativeConfig(nativeConfig);
-  const runtimeConfigBase = deriveRuntimeConfigBase({
-    ...nativeConfig,
-    targetFps: nativeTargetFps,
-  });
 
   const initConfigBase = {
     ...nativeConfig,
@@ -793,6 +789,7 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       if (!isInlineScreen) {
         throw new ZrUiError("ZRUI_BACKEND_ERROR", 'commitScrollback requires screen.mode "inline"');
       }
+      validateInlineRowsOrThrow(rows, "commitScrollback: rows");
       const commit = native.engineCommitScrollback;
       if (commit === undefined) {
         throw new ZrUiError(
@@ -818,8 +815,13 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       if (!isInlineScreen) {
         throw new ZrUiError("ZRUI_BACKEND_ERROR", 'setInlineRows requires screen.mode "inline"');
       }
-      validateInlineRowsOrThrow(rows);
-      const rc = native.engineSetConfig(engineId, { ...runtimeConfigBase, inlineRows: rows });
+      validateInlineRowsOrThrow(rows, "setInlineRows: rows");
+      if (initConfigResolved === null) {
+        throw new Error("NodeBackend(inline): not started");
+      }
+      /* Resend the resolved create surface (width policy settles at start). */
+      const runtimeBase = deriveRuntimeConfigBase(initConfigResolved);
+      const rc = native.engineSetConfig(engineId, { ...runtimeBase, inlineRows: rows });
       if (rc < 0) {
         throw new ZrUiError("ZRUI_BACKEND_ERROR", `engine_set_config failed: code=${String(rc)}`);
       }

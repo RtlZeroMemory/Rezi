@@ -1018,6 +1018,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     async printAbove(view: VNode, printOpts?: Readonly<{ rows?: number }>): Promise<void> {
       guards.assertOperational("printAbove");
+      guards.assertLifecycleIdle("printAbove");
+      if (inCommit) guards.throwCode("ZRUI_REENTRANT_CALL", "printAbove: called during commit");
+      if (inRender) {
+        guards.throwCode(
+          "ZRUI_UPDATE_DURING_RENDER",
+          guards.updateDuringRenderDetail("printAbove"),
+        );
+      }
       sm.assertOneOf(["Running"], "printAbove: app must be running");
       const commitFn = backend.commitScrollback?.bind(backend);
       if (commitFn === undefined) {
@@ -1038,6 +1046,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     async setInlineRows(rows: number): Promise<void> {
       guards.assertOperational("setInlineRows");
+      guards.assertLifecycleIdle("setInlineRows");
+      if (inCommit) guards.throwCode("ZRUI_REENTRANT_CALL", "setInlineRows: called during commit");
+      if (inRender) {
+        guards.throwCode(
+          "ZRUI_UPDATE_DURING_RENDER",
+          guards.updateDuringRenderDetail("setInlineRows"),
+        );
+      }
       sm.assertOneOf(["Running"], "setInlineRows: app must be running");
       const setFn = backend.setInlineRows?.bind(backend);
       if (setFn === undefined) {

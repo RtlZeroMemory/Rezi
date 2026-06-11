@@ -77,12 +77,22 @@ app.keys({
   "ctrl+c": () => void app.stop(),
   /* Grow/shrink the live region at runtime; layout follows the resize. */
   "shift+=": () => {
-    inlineRows = Math.min(16, inlineRows + 1);
-    void app.setInlineRows(inlineRows).catch(() => {});
+    const nextRows = Math.min(16, inlineRows + 1);
+    void app.setInlineRows(nextRows).then(
+      () => {
+        inlineRows = nextRows;
+      },
+      () => {},
+    );
   },
   "-": () => {
-    inlineRows = Math.max(5, inlineRows - 1);
-    void app.setInlineRows(inlineRows).catch(() => {});
+    const nextRows = Math.max(5, inlineRows - 1);
+    void app.setInlineRows(nextRows).then(
+      () => {
+        inlineRows = nextRows;
+      },
+      () => {},
+    );
   },
 });
 
