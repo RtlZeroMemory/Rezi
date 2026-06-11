@@ -768,6 +768,14 @@ export function LogsConsole(props: LogsConsoleJsxProps): VNode;
 export type LogsConsoleJsxProps = LeafProps<LogsConsoleProps>;
 
 // @public (undocumented)
+export function Markdown(props: MarkdownJsxProps): VNode;
+
+// Warning: (ae-forgotten-export) The symbol "MarkdownProps" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export type MarkdownJsxProps = LeafProps<MarkdownProps>;
+
+// @public (undocumented)
 export function MasterDetail(props: MasterDetailJsxProps): VNode;
 
 // @public (undocumented)
@@ -1768,22 +1776,22 @@ export type WithTextChildren<P extends {
 // packages/core/src/widgets/composition.ts:128:3 - (ae-forgotten-export) The symbol "ResponsiveViewportSnapshot" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/style.ts:26:3 - (ae-forgotten-export) The symbol "UnderlineStyle" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/style.ts:27:3 - (ae-forgotten-export) The symbol "ThemeColor" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:259:34 - (ae-forgotten-export) The symbol "FragmentProps" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:262:29 - (ae-forgotten-export) The symbol "RowProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:263:32 - (ae-forgotten-export) The symbol "ColumnProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:264:32 - (ae-forgotten-export) The symbol "ThemedProps" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:265:30 - (ae-forgotten-export) The symbol "GridProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:286:30 - (ae-forgotten-export) The symbol "LinkProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:287:32 - (ae-forgotten-export) The symbol "CanvasProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:288:31 - (ae-forgotten-export) The symbol "ImageProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:289:35 - (ae-forgotten-export) The symbol "LineChartProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:290:33 - (ae-forgotten-export) The symbol "ScatterProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:291:33 - (ae-forgotten-export) The symbol "HeatmapProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:296:35 - (ae-forgotten-export) The symbol "FocusZoneProps_2" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types.ts:297:35 - (ae-forgotten-export) The symbol "FocusTrapProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:260:34 - (ae-forgotten-export) The symbol "FragmentProps" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:263:29 - (ae-forgotten-export) The symbol "RowProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:264:32 - (ae-forgotten-export) The symbol "ColumnProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:265:32 - (ae-forgotten-export) The symbol "ThemedProps" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:266:30 - (ae-forgotten-export) The symbol "GridProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:287:30 - (ae-forgotten-export) The symbol "LinkProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:288:32 - (ae-forgotten-export) The symbol "CanvasProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:289:31 - (ae-forgotten-export) The symbol "ImageProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:290:35 - (ae-forgotten-export) The symbol "LineChartProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:291:33 - (ae-forgotten-export) The symbol "ScatterProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:292:33 - (ae-forgotten-export) The symbol "HeatmapProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:297:35 - (ae-forgotten-export) The symbol "FocusZoneProps_2" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types.ts:298:35 - (ae-forgotten-export) The symbol "FocusTrapProps_2" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/advanced.ts:538:3 - (ae-forgotten-export) The symbol "ToolFileChange" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/advanced.ts:602:3 - (ae-forgotten-export) The symbol "TokenCount" needs to be exported by the entry point index.d.ts
-// packages/core/src/widgets/types/base.ts:772:3 - (ae-forgotten-export) The symbol "BadgeVariant" needs to be exported by the entry point index.d.ts
+// packages/core/src/widgets/types/base.ts:784:3 - (ae-forgotten-export) The symbol "BadgeVariant" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/overlaysShell.ts:62:3 - (ae-forgotten-export) The symbol "SizeConstraintAtom" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/overlaysShell.ts:74:3 - (ae-forgotten-export) The symbol "ModalBackdrop" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/overlaysShell.ts:122:5 - (ae-forgotten-export) The symbol "AppShellSidebar" needs to be exported by the entry point index.d.ts
@@ -1795,10 +1803,10 @@ export type WithTextChildren<P extends {
 // packages/core/src/widgets/types/table.ts:102:3 - (ae-forgotten-export) The symbol "TableStripeStyle" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/table.ts:110:3 - (ae-forgotten-export) The symbol "TableBorderStyle" needs to be exported by the entry point index.d.ts
 // packages/core/src/widgets/types/table.ts:112:3 - (ae-forgotten-export) The symbol "FocusConfig" needs to be exported by the entry point index.d.ts
-// src/types.ts:166:3 - (ae-forgotten-export) The symbol "ThemeOverrides" needs to be exported by the entry point index.d.ts
-// src/types.ts:236:3 - (ae-forgotten-export) The symbol "RegisteredBinding" needs to be exported by the entry point index.d.ts
-// src/types.ts:241:3 - (ae-forgotten-export) The symbol "RouterApi" needs to be exported by the entry point index.d.ts
-// src/types.ts:242:3 - (ae-forgotten-export) The symbol "RouteDefinition" needs to be exported by the entry point index.d.ts
+// src/types.ts:167:3 - (ae-forgotten-export) The symbol "ThemeOverrides" needs to be exported by the entry point index.d.ts
+// src/types.ts:237:3 - (ae-forgotten-export) The symbol "RegisteredBinding" needs to be exported by the entry point index.d.ts
+// src/types.ts:242:3 - (ae-forgotten-export) The symbol "RouterApi" needs to be exported by the entry point index.d.ts
+// src/types.ts:243:3 - (ae-forgotten-export) The symbol "RouteDefinition" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

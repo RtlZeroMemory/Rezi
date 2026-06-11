@@ -222,6 +222,7 @@ export type {
   LineChartProps,
   LineChartSeries,
   LinkProps,
+  MarkdownProps,
   MiniChartProps,
   ModalProps,
   MasterDetailOptions,
@@ -332,6 +333,15 @@ export {
   tokenizeCodeEditorLine,
   tokenizeCodeEditorLineWithCustom,
 } from "./widgets/codeEditorSyntax.js";
+export type {
+  MarkdownBlock,
+  MarkdownDocument,
+  MarkdownInline,
+  MarkdownListItem,
+  MarkdownRenderOptions,
+  MarkdownTableAlign,
+} from "./widgets/markdown/index.js";
+export { parseMarkdown, renderMarkdown } from "./widgets/markdown/index.js";
 export type {
   InspectorOverlayFrameTiming,
   InspectorOverlayPosition,

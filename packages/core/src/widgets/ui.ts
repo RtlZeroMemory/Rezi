@@ -87,6 +87,7 @@ import {
   routerTabs,
   tabs,
 } from "./factories/navigation.js";
+import { markdown } from "./markdown/index.js";
 
 export const ui = {
   text,
@@ -102,6 +103,7 @@ export const ui = {
   progress,
   skeleton,
   richText,
+  markdown,
   kbd,
   keybindingHelp,
   badge,

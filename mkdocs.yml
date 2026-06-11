@@ -156,6 +156,7 @@ nav:
           - Progress: widgets/progress.md
           - Skeleton: widgets/skeleton.md
           - RichText: widgets/rich-text.md
+          - Markdown: widgets/markdown.md
           - Kbd: widgets/kbd.md
           - Badge: widgets/badge.md
           - Status: widgets/status.md

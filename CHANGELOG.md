@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Added
+
+- **core/markdown**: New `ui.markdown(source, props?)` widget (`experimental` tier) rendering a GitHub-Flavored-Markdown subset onto existing widgets: headings, paragraphs with wrapping, fenced/indented code with tokenizer-based monochrome syntax emphasis, nested and task lists, blockquotes, pipe tables with alignment, thematic breaks, and inline strong/em/del/code/links/autolinks/entities. The zero-dependency parser is bounded and fuzz-tested, never throws on untrusted input, and is exported as `parseMarkdown`/`renderMarkdown` with frozen `MarkdownDocument` AST types for caller-side caching (streaming). JSX exposes `<Markdown source="…" />`.
+
 ## [0.1.0-beta.1] - 2026-06-11
 
 ### Changed

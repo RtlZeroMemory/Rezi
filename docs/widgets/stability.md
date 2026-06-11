@@ -46,6 +46,7 @@ The full catalog is tiered below. `stable` is intentionally conservative and res
 | Indicators | [Progress](progress.md) | `beta` |
 | Indicators | [Skeleton](skeleton.md) | `beta` |
 | Indicators | [RichText](rich-text.md) | `beta` |
+| Indicators | [Markdown](markdown.md) | `experimental` |
 | Indicators | [Kbd](kbd.md) | `beta` |
 | Indicators | [Badge](badge.md) | `beta` |
 | Indicators | [Status](status.md) | `beta` |

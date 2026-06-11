@@ -80,6 +80,7 @@ Content rendering, labels, and informational widgets.
 |---------|-------------|-----------|-----------|
 | [`ui.text(content, style?)`](text.md) | Display text with optional styling or variant | No | `stable` |
 | [`ui.richText(spans, props?)`](rich-text.md) | Multi-styled text spans | No | `beta` |
+| [`ui.markdown(source, props?)`](markdown.md) | GitHub-Flavored-Markdown subset rendered onto core widgets | No | `experimental` |
 | [`ui.icon(iconPath, props?)`](icon.md) | Single-character icon from the icon registry | No | `beta` |
 | [`ui.badge(text, props?)`](badge.md) | Small status indicator label | No | `beta` |
 | [`ui.status(status, props?)`](status.md) | Online/offline/away/busy status dot | No | `beta` |

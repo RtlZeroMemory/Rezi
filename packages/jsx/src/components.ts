@@ -30,6 +30,7 @@ import type {
   LayerProps,
   LayersProps,
   LogsConsoleProps,
+  MarkdownProps,
   MasterDetailOptions,
   MiniChartProps,
   ModalProps,
@@ -115,6 +116,7 @@ import type {
   LineChartJsxProps,
   LinkJsxProps,
   LogsConsoleJsxProps,
+  MarkdownJsxProps,
   MasterDetailJsxProps,
   MiniChartJsxProps,
   ModalJsxProps,
@@ -611,6 +613,11 @@ export function ToolApprovalDialog(props: ToolApprovalDialogJsxProps): VNode {
 export function LogsConsole(props: LogsConsoleJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
   return ui.logsConsole(withOptionalKey<LogsConsoleProps>(rest, key));
+}
+
+export function Markdown(props: MarkdownJsxProps): VNode {
+  const { source, key, children: _children, ...rest } = props;
+  return ui.markdown(source, withOptionalKey<Omit<MarkdownProps, "source">>(rest, key));
 }
 
 export function ToastContainer(props: ToastContainerJsxProps): VNode {

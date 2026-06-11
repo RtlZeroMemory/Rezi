@@ -3878,6 +3878,86 @@ export function makeBackendBatch(opts: Readonly<{
 export function makeCompoundId(prefix: string, ...segments: readonly string[]): string;
 
 // @public
+export type MarkdownBlock = Readonly<{
+    kind: "heading";
+    level: 1 | 2 | 3 | 4 | 5 | 6;
+    children: readonly MarkdownInline[];
+}> | Readonly<{
+    kind: "paragraph";
+    children: readonly MarkdownInline[];
+}> | Readonly<{
+    kind: "codeBlock";
+    language: string;
+    text: string;
+}> | Readonly<{
+    kind: "blockquote";
+    children: readonly MarkdownBlock[];
+}> | Readonly<{
+    kind: "list";
+    ordered: boolean;
+    start: number;
+    items: readonly MarkdownListItem[];
+}> | Readonly<{
+    kind: "hr";
+}> | Readonly<{
+    kind: "table";
+    align: readonly MarkdownTableAlign[];
+    head: readonly (readonly MarkdownInline[])[];
+    rows: readonly (readonly (readonly MarkdownInline[])[])[];
+}>;
+
+// @public
+export type MarkdownDocument = Readonly<{
+    blocks: readonly MarkdownBlock[];
+}>;
+
+// @public
+export type MarkdownInline = Readonly<{
+    kind: "text";
+    text: string;
+}> | Readonly<{
+    kind: "code";
+    text: string;
+}> | Readonly<{
+    kind: "strong";
+    children: readonly MarkdownInline[];
+}> | Readonly<{
+    kind: "em";
+    children: readonly MarkdownInline[];
+}> | Readonly<{
+    kind: "del";
+    children: readonly MarkdownInline[];
+}> | Readonly<{
+    kind: "link";
+    href: string;
+    children: readonly MarkdownInline[];
+}> | Readonly<{
+    kind: "break";
+}>;
+
+// @public
+export type MarkdownListItem = Readonly<{
+    checked: boolean | null;
+    blocks: readonly MarkdownBlock[];
+}>;
+
+// @public
+export type MarkdownProps = Readonly<{
+    key?: string;
+    source: string;
+    blockGap?: number;
+}>;
+
+// @public
+export type MarkdownRenderOptions = Readonly<{
+    key?: string;
+    blockGap?: number;
+}>;
+
+// @public
+export type MarkdownTableAlign = "left" | "center" | "right";
+
+// @public
 export function maskToCategories(mask: number): DebugCategory[];
 
 // @public (undocumented)
@@ -4176,6 +4256,9 @@ export function parseFrameRecord(bytes: Uint8Array): DebugParseResult<FrameRecor
 export function parseKeySequence(input: string): ParseKeyResult;
 
 // @public
+export function parseMarkdown(source: string): MarkdownDocument;
+
+// @public
 export function parsePayload(category: string, bytes: Uint8Array): DebugParseResult<FrameRecord | EventRecord | ErrorRecord | DrawlistRecord | DrawlistBytesPayload | PerfRecord | null>;
 
 // @public
@@ -4444,6 +4527,9 @@ export function removeToast(toasts: readonly Toast[], id: string): readonly Toas
 
 // @public
 export function renderHorizontalScrollbar(width: number, state: ScrollbarState, config?: ScrollbarConfig): readonly string[];
+
+// @public
+export function renderMarkdown(doc: MarkdownDocument, options?: MarkdownRenderOptions): VNode;
 
 // Warning: (ae-forgotten-export) The symbol "ResolvedTextStyle" needs to be exported by the entry point index.d.ts
 //
@@ -6743,6 +6829,7 @@ export const ui: {
     readonly progress: typeof progress;
     readonly skeleton: typeof skeleton;
     readonly richText: typeof richText;
+    readonly markdown: typeof markdown;
     readonly kbd: typeof kbd;
     readonly keybindingHelp: typeof keybindingHelp;
     readonly badge: typeof badge;
@@ -8028,100 +8115,101 @@ export type ZrUiErrorCode = "ZRUI_INVALID_STATE" | "ZRUI_MODE_CONFLICT" | "ZRUI_
 // src/widgets/composition.ts:88:3 - (ae-forgotten-export) The symbol "UnknownCallback" needs to be exported by the entry point index.d.ts
 // src/widgets/style.ts:26:3 - (ae-forgotten-export) The symbol "UnderlineStyle" needs to be exported by the entry point index.d.ts
 // src/widgets/style.ts:27:3 - (ae-forgotten-export) The symbol "ThemeColor" needs to be exported by the entry point index.d.ts
-// src/widgets/types.ts:259:34 - (ae-forgotten-export) The symbol "FragmentProps" needs to be exported by the entry point index.d.ts
-// src/widgets/types.ts:262:29 - (ae-forgotten-export) The symbol "RowProps" needs to be exported by the entry point index.d.ts
-// src/widgets/types.ts:263:32 - (ae-forgotten-export) The symbol "ColumnProps" needs to be exported by the entry point index.d.ts
-// src/widgets/types.ts:265:30 - (ae-forgotten-export) The symbol "GridProps" needs to be exported by the entry point index.d.ts
-// src/widgets/types.ts:296:35 - (ae-forgotten-export) The symbol "FocusZoneProps" needs to be exported by the entry point index.d.ts
-// src/widgets/types.ts:297:35 - (ae-forgotten-export) The symbol "FocusTrapProps" needs to be exported by the entry point index.d.ts
+// src/widgets/types.ts:260:34 - (ae-forgotten-export) The symbol "FragmentProps" needs to be exported by the entry point index.d.ts
+// src/widgets/types.ts:263:29 - (ae-forgotten-export) The symbol "RowProps" needs to be exported by the entry point index.d.ts
+// src/widgets/types.ts:264:32 - (ae-forgotten-export) The symbol "ColumnProps" needs to be exported by the entry point index.d.ts
+// src/widgets/types.ts:266:30 - (ae-forgotten-export) The symbol "GridProps" needs to be exported by the entry point index.d.ts
+// src/widgets/types.ts:297:35 - (ae-forgotten-export) The symbol "FocusZoneProps" needs to be exported by the entry point index.d.ts
+// src/widgets/types.ts:298:35 - (ae-forgotten-export) The symbol "FocusTrapProps" needs to be exported by the entry point index.d.ts
 // src/widgets/types/advanced.ts:71:3 - (ae-forgotten-export) The symbol "OverlayFrameStyle" needs to be exported by the entry point index.d.ts
 // src/widgets/types/base.ts:81:3 - (ae-forgotten-export) The symbol "EasingInput" needs to be exported by the entry point index.d.ts
 // src/widgets/types/base.ts:179:5 - (ae-forgotten-export) The symbol "BoxBorderSideStyles" needs to be exported by the entry point index.d.ts
 // src/widgets/types/base.ts:186:5 - (ae-forgotten-export) The symbol "Overflow" needs to be exported by the entry point index.d.ts
-// src/widgets/types/base.ts:590:3 - (ae-forgotten-export) The symbol "CanvasPoint" needs to be exported by the entry point index.d.ts
+// src/widgets/types/base.ts:602:3 - (ae-forgotten-export) The symbol "CanvasPoint" needs to be exported by the entry point index.d.ts
 // src/widgets/types/overlaysShell.ts:62:3 - (ae-forgotten-export) The symbol "SizeConstraintAtom" needs to be exported by the entry point index.d.ts
 // src/widgets/types/overlaysShell.ts:74:3 - (ae-forgotten-export) The symbol "ModalBackdrop" needs to be exported by the entry point index.d.ts
 // src/widgets/types/overlaysShell.ts:112:3 - (ae-forgotten-export) The symbol "SizeConstraint" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "text" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "box" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "row" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "column" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "themed" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "grid" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "spacer" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "divider" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "icon" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "spinner" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "progress" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "skeleton" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "richText" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "kbd" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "keybindingHelp" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "badge" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "status" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "tag" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "gauge" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "empty" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "errorDisplay" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "errorBoundary" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "callout" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "link" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "canvas" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "lineChart" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "scatter" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "heatmap" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "sparkline" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "barChart" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "miniChart" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "button" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "input" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "textarea" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "focusAnnouncer" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "focusZone" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "focusTrap" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "virtualList" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "layers" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "panel" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "form" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "actions" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "center" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "page" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "appShell" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "card" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "toolbar" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "statusBar" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "header" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "sidebar" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "masterDetail" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "dialog_2" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "modal" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "dropdown" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "layer" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "table" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "tree" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "field" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "select" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "slider" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "checkbox" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "radioGroup" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "tabs" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "routerBreadcrumb_2" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "routerTabs_2" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "accordion" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "breadcrumb" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "pagination" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "commandPalette" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "filePicker" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "fileTreeExplorer" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "splitPane" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "panelGroup" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "resizablePanel" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "codeEditor" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "diffViewer" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "toolApprovalDialog" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "logsConsole" needs to be exported by the entry point index.d.ts
-// src/widgets/ui.ts:91:16 - (ae-forgotten-export) The symbol "toastContainer" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "text" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "box" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "row" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "column" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "themed" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "grid" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "spacer" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "divider" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "icon" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "spinner" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "progress" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "skeleton" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "richText" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "markdown" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "kbd" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "keybindingHelp" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "badge" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "status" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "tag" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "gauge" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "empty" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "errorDisplay" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "errorBoundary" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "callout" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "link" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "canvas" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "lineChart" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "scatter" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "heatmap" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "sparkline" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "barChart" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "miniChart" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "button" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "input" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "textarea" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "focusAnnouncer" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "focusZone" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "focusTrap" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "virtualList" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "layers" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "panel" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "form" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "actions" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "center" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "page" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "appShell" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "card" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "toolbar" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "statusBar" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "header" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "sidebar" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "masterDetail" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "dialog_2" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "modal" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "dropdown" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "layer" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "table" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "tree" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "field" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "select" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "slider" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "checkbox" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "radioGroup" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "tabs" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "routerBreadcrumb_2" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "routerTabs_2" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "accordion" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "breadcrumb" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "pagination" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "commandPalette" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "filePicker" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "fileTreeExplorer" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "splitPane" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "panelGroup" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "resizablePanel" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "codeEditor" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "diffViewer" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "toolApprovalDialog" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "logsConsole" needs to be exported by the entry point index.d.ts
+// src/widgets/ui.ts:92:16 - (ae-forgotten-export) The symbol "toastContainer" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

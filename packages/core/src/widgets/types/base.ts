@@ -396,6 +396,18 @@ export type RichTextProps = Readonly<{
 }>;
 
 /**
+ * Props for the markdown widget. Renders a GitHub-Flavored-Markdown subset
+ * by composing existing widgets; see docs/widgets/markdown.md.
+ */
+export type MarkdownProps = Readonly<{
+  key?: string;
+  /** Markdown source text (GitHub-Flavored-Markdown subset). */
+  source: string;
+  /** Vertical spacing rows between top-level blocks. Defaults to 1. */
+  blockGap?: number;
+}>;
+
+/**
  * Props for keyboard shortcut display widget.
  */
 export type KbdProps = Readonly<{
