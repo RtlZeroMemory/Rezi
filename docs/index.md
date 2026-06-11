@@ -2,7 +2,7 @@
 
 Rezi is a code-first terminal UI framework for Node.js and Bun. It uses a declarative widget API, deterministic input routing, and native-backed rendering through the [Zireael](https://github.com/RtlZeroMemory/Zireael) C engine.
 
-> **Status: pre-alpha**. Rezi is under active development. Public APIs, ABI details, and behavior may change between releases. It is not yet recommended for production workloads.
+> **Status: beta**. The core API is stable and recorded against a public API report. Breaking changes before 1.0 are batched and documented in the changelog with migration notes. Per-widget guarantees are listed in [Widget Stability](widgets/stability.md).
 
 ## Focus
 

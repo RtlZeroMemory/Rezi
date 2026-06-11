@@ -1,6 +1,6 @@
 # Constraints Guide
 
-Rezi's helper-first constraints API is the canonical way to express derived layout relationships in the alpha branch.
+Rezi's helper-first constraints API is the canonical way to express derived layout relationships in the beta line.
 Use `expr("...")` as an advanced escape hatch when helper primitives do not cover the case.
 
 See also:
@@ -19,7 +19,7 @@ See also:
 - Use `display: expr("...")` only as an escape hatch when a helper does not fit the visibility rule.
 - Keep business-logic visibility in `show(...)`, `when(...)`, `match(...)`, or `maybe(...)`.
 - `%` layout size strings and responsive-map layout constraints (`{ sm, md, ... }`) are removed.
-- `grid.columns` supports `number | string` only in alpha. `columns: expr(...)` is intentionally invalid.
+- `grid.columns` supports `number | string` only in the beta line. `columns: expr(...)` is intentionally invalid.
 
 ## Supported References
 
@@ -104,7 +104,7 @@ Notes:
 
 ## Grid Contract (Important)
 
-`grid.columns` does not currently accept `expr(...)` in alpha.
+`grid.columns` does not currently accept `expr(...)` in the beta line.
 
 Supported:
 
@@ -116,7 +116,7 @@ ui.grid({ columns: "14 auto 1fr", gap: 1 }, ...children)
 Not supported:
 
 ```ts
-ui.grid({ columns: expr("max(1, floor(parent.w / 24))") }, ...children) // invalid in alpha
+ui.grid({ columns: expr("max(1, floor(parent.w / 24))") }, ...children) // invalid in the beta line
 ```
 
 For responsive behavior, compose multiple grids and switch with `display: expr(...)`.

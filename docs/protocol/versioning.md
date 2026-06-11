@@ -4,8 +4,8 @@ Rezi pins versions at every binary boundary.
 
 ## Status
 
-Rezi is pre-alpha. Public APIs and ABI-facing behavior may change between
-releases.
+Rezi is in beta. Remaining pre-1.0 API and ABI-facing changes are batched,
+versioned at the boundaries below, and documented in the changelog.
 
 ## Engine ABI
 

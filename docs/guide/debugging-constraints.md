@@ -46,7 +46,7 @@ Fix:
 Cause: prop contract violations, for example:
 - `%` size strings
 - responsive-map layout constraints (`{ sm, md, ... }`)
-- `grid.columns: expr(...)` (invalid in alpha)
+- `grid.columns: expr(...)` (invalid in the beta line)
 
 Fix:
 - Migrate to helper constraints / `expr` where supported

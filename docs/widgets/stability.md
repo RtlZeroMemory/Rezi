@@ -4,7 +4,7 @@ Rezi uses stability tiers so teams can choose widgets with clear behavior guaran
 
 ## Tiers
 
-- `stable`: strongest widget tier inside the current pre-alpha line; documented behavior contracts and deterministic tests exist, and maintainers aim to avoid unnecessary breaking changes.
+- `stable`: strongest widget tier in the current beta line; documented behavior contracts and deterministic tests exist, and documented behavior does not change without a changelog callout and migration note.
 - `beta`: usable and tested for core invariants, but parts of the contract can still evolve.
 - `experimental`: no compatibility guarantees; behavior and APIs can change quickly.
 
@@ -15,7 +15,7 @@ When a widget is marked `stable`, Rezi guarantees:
 - deterministic behavior for documented keyboard, pointer, and editing contracts
 - deterministic regression tests that pin those contracts in `packages/core/src/**/__tests__`
 - clear changelog callouts when documented stable behavior changes
-- stronger compatibility expectations than `beta` / `experimental`, while the repo-wide pre-alpha status still applies to the package line as a whole
+- stronger compatibility expectations than `beta` / `experimental`, while the package line as a whole remains pre-1.0 beta
 
 ## Daily Driver Status
 
