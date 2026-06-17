@@ -37,6 +37,8 @@ combinations:
 When you install `@rezi-ui/native`, the correct prebuilt binary is selected
 automatically based on `process.platform` and `process.arch`. No postinstall
 scripts are required -- the binary is included directly in the published package.
+Windows prebuilds are linked with the static MSVC C runtime, so they do not
+require users to install the Visual C++ Redistributable separately.
 
 Prebuilt binaries are produced by the `prebuild.yml` GitHub Actions workflow,
 which cross-compiles on CI for all target triples.

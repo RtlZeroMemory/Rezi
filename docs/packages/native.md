@@ -5,6 +5,7 @@ Native addon:
 - Rust + `napi-rs` binding
 - vendored Zireael engine sources
 - prebuilt `.node` binaries for supported targets
+- static MSVC runtime linking for Windows prebuilds
 
 ## Install
 

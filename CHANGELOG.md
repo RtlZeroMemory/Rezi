@@ -14,6 +14,9 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Fixed
 
+- **native/windows**: Windows prebuilt native binaries now link the MSVC runtime
+  statically, so packaged apps can run on clean Windows installs without a
+  separate Visual C++ Redistributable install.
 - **core/renderer**: Per-side box borders now render standalone edges. A box with only `borderLeft` (or any vertical-only side combination) previously drew nothing when shorter than 2 rows; corner rows are now only required when a horizontal edge is present. Markdown blockquotes use this to render a GitHub-style dim left bar instead of a rounded box.
 
 ## [0.1.0-beta.3] - 2026-06-11
