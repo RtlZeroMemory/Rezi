@@ -71,6 +71,8 @@ jobs:
           arch: ${{ matrix.msvcArch }}
 
       - name: Build prebuild
+        env:
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-C target-feature=+crt-static' || '' }}
         run: npx napi build --platform --release --target "${{ matrix.rustTarget }}" --js false
         working-directory: packages/native
 

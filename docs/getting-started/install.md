@@ -62,6 +62,9 @@ No install-time source build runs for unsupported targets. If a matching
 prebuilt binary is not available, build from a repository checkout with
 `npm run build:native`.
 
+Windows prebuilt binaries do not require a separate Visual C++ Redistributable
+install.
+
 ## Package Overview
 
 | Package | Description | Required |

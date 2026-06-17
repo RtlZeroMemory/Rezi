@@ -29,6 +29,8 @@ npm run check:native-vendor
 - Engine placement is controlled by `@rezi-ui/node` `executionMode` (`auto` | `worker` | `inline`).
 - `executionMode: "auto"` selects inline when `fpsCap <= 30`, worker otherwise.
 - All buffers across the boundary are caller-owned; binary formats are validated strictly.
+- Windows builds link the MSVC C runtime statically so packaged apps do not need
+  a separate Visual C++ Redistributable install.
 - Native compilation reads `packages/native/vendor/zireael` (not `vendor/zireael`).
 - `packages/native/vendor/VENDOR_COMMIT.txt` must match the `vendor/zireael` gitlink commit.
 

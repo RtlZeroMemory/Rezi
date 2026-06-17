@@ -3,6 +3,8 @@ import { copyFileSync, existsSync, readdirSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
+const WINDOWS_STATIC_CRT_RUSTFLAGS = "-C target-feature=+crt-static";
+
 function splitPathList(value, delim) {
   return value
     .split(delim)
@@ -338,6 +340,25 @@ function withRustToolchainOnPath(env) {
   return next;
 }
 
+function isWindowsMsvcTarget(targetTriple) {
+  return typeof targetTriple === "string" && targetTriple.endsWith("-pc-windows-msvc");
+}
+
+function withWindowsStaticCrtEnv(env, hostTargetTriple) {
+  if (process.platform !== "win32" || !isWindowsMsvcTarget(hostTargetTriple)) return env;
+
+  const current = typeof env.RUSTFLAGS === "string" ? env.RUSTFLAGS.trim() : "";
+  if (/(^|\s)target-feature=\+crt-static(\s|$)/.test(current)) return env;
+  if (/(^|\s)-Ctarget-feature=\+crt-static(\s|$)/.test(current)) return env;
+
+  const next = { ...env };
+  next.RUSTFLAGS =
+    current.length > 0
+      ? `${current} ${WINDOWS_STATIC_CRT_RUSTFLAGS}`
+      : WINDOWS_STATIC_CRT_RUSTFLAGS;
+  return next;
+}
+
 function buildWithCargoDirectly(env, host) {
   const cargoExe = getCargoExePath(env) ?? "cargo";
   try {
@@ -405,7 +426,10 @@ try {
 }
 
 const scriptEnv = ensureCargoOnPath(
-  withWindowsSdkEnv(withMsvcDevEnv(withRustToolchainOnPath(process.env), host), host),
+  withWindowsStaticCrtEnv(
+    withWindowsSdkEnv(withMsvcDevEnv(withRustToolchainOnPath(process.env), host), host),
+    host,
+  ),
 );
 
 // @napi-rs/cli parses Cargo.toml by running `cargo metadata` through cmd.exe on Windows.

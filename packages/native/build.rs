@@ -14,6 +14,13 @@ fn main() {
     build.include(&src_dir);
     build.warnings(false);
 
+    let target_features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+    if env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+        && target_features.split(',').any(|feature| feature == "crt-static")
+    {
+        build.static_crt(true);
+    }
+
     // The engine assumes a C99-or-newer compiler; C11 is required for atomics on MSVC.
     if build.get_compiler().is_like_msvc() {
         build.flag_if_supported("/std:c11");
